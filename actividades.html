@@ -1,0 +1,202 @@
+<!doctype html>
+<!-- ARCHIVO: actividades.html (Página de Cartelera Diaria & Explorador de Actividades) -->
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChispaPlay - Cartelera Diaria de Actividades Gratuitas</title>
+    <meta name="description" content="Cartelera diaria y cronológica de talleres y actividades en Maipú y Valparaíso. Filtros por sector, categoría e inclusión." />
+    <!-- Open Graph / WhatsApp Social Share -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="ChispaPlay | Cartelera Diaria de Actividades Barriales" />
+    <meta property="og:description" content="Agenda comunitaria completa en Maipú y Valparaíso. Talleres y actividades familiares 100% gratuitas a menos de 15 minutos." />
+    <meta property="og:site_name" content="ChispaPlay" />
+    <meta property="og:locale" content="es_CL" />
+    <link rel="stylesheet" href="/css/global.css" />
+  </head>
+  <body class="bg-[#F8F8F6] text-[#111111] antialiased font-sans">
+    
+    <!-- Navbar Reutilizable -->
+    <header id="navbar-container"></header>
+
+    <!-- CONTENEDOR DEDICADO DE ACTIVIDAD (REEMPLAZA ACORDEÓN CON VISTA COMPLETA EDITORIAL) -->
+    <section id="dedicated-activity-container" class="hidden min-h-[calc(100vh-140px)]"></section>
+
+    <!-- Main Container -->
+    <main id="actividades-main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      
+      <!-- Encabezado de la Cartelera Diaria -->
+      <section class="border-b-4 border-black pb-6 mb-8">
+        <div class="flex flex-col md:flex-row items-start md:items-end justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="bg-black text-white text-[11px] font-mono uppercase tracking-wider px-2 py-0.5">
+                FORMATO CRONOLÓGICO DIARIO
+              </span>
+              <span id="actividades-commune-badge" class="bg-[#E11D48] text-white text-[11px] font-mono uppercase tracking-wider px-2 py-0.5">
+                COMUNA: CARGANDO...
+              </span>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-neutral-900 leading-none">
+              Cartelera Diaria
+            </h1>
+            <p class="text-sm text-neutral-600 mt-2 font-medium">
+              Agenda comunitaria completa en Maipú y Valparaíso. Consulta plazas, horarios y asegura tu cupo gratuito.
+            </p>
+          </div>
+
+          <!-- Selector de Modo de Vista & Contador Limpio -->
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- Toggle Modo Póster vs Modo Diario Cultural -->
+            <div class="inline-flex items-center border-2 border-black bg-white shadow-[3px_3px_0px_0px_#111111] overflow-hidden">
+              <button 
+                id="btn-view-poster" 
+                type="button" 
+                class="btn-view-mode px-3 sm:px-4 py-2 text-xs font-mono font-black uppercase tracking-wider bg-black text-white cursor-pointer transition-colors"
+                title="Vista con fotografía limpia y 4 datos"
+              >
+                ⊞ Vista Póster
+              </button>
+              <button 
+                id="btn-view-diario" 
+                type="button" 
+                class="btn-view-mode px-3 sm:px-4 py-2 text-xs font-mono font-black uppercase tracking-wider bg-white text-neutral-800 hover:bg-neutral-100 cursor-pointer transition-colors"
+                title="Agenda compacta estilo The New Yorker / Time Out"
+              >
+                ☰ Vista Diario
+              </button>
+            </div>
+
+            <div class="bg-white border-2 border-black px-4 sm:px-5 py-2 text-right shadow-[3px_3px_0px_0px_#111111] shrink-0">
+              <div class="text-[10px] font-mono uppercase text-neutral-500 font-bold">DISPONIBLES:</div>
+              <div id="actividades-count-display" class="text-xl font-black text-neutral-900 leading-none mt-0.5">
+                0 Actividades
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Buscador y Barra de Filtros -->
+        <div class="mt-8 pt-6 border-t border-neutral-300 space-y-4">
+          
+          <!-- Input de búsqueda -->
+          <div class="relative">
+            <input 
+              type="text" 
+              id="input-search-activities" 
+              placeholder="Buscar por taller, parque, instructor o palabra clave (ej. Skate, Huerto, Ajedrez, Robótica)..."
+              class="w-full bg-white border-2 border-black p-3.5 pl-11 text-sm font-medium outline-none shadow-[4px_4px_0px_0px_#111111] focus:border-[#E11D48]"
+            />
+            <span class="absolute left-4 top-4 text-neutral-400 font-bold">🔍</span>
+            <button 
+              id="btn-clear-search" 
+              class="hidden absolute right-3 top-3.5 text-xs bg-neutral-200 hover:bg-black hover:text-white px-2 py-1 font-bold uppercase transition-colors"
+            >
+              Limpiar
+            </button>
+          </div>
+
+          <!-- Filtros de Inclusión y Categoría -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+            
+            <!-- Selector de Categoría -->
+            <div class="flex items-center gap-2 overflow-x-auto py-1">
+              <span class="text-xs font-mono font-bold text-neutral-500 uppercase shrink-0">Filtro:</span>
+              <button data-cat="todas" class="btn-filter-category px-3 py-1.5 text-xs font-black uppercase tracking-wider border border-black bg-black text-white cursor-pointer">
+                Todas
+              </button>
+              <button data-cat="deporte" class="btn-filter-category px-3 py-1.5 text-xs font-bold uppercase tracking-wider border border-neutral-300 bg-white text-neutral-700 hover:border-black cursor-pointer">
+                Deporte & Juegos
+              </button>
+              <button data-cat="ciencia" class="btn-filter-category px-3 py-1.5 text-xs font-bold uppercase tracking-wider border border-neutral-300 bg-white text-neutral-700 hover:border-black cursor-pointer">
+                Ciencia & STEM
+              </button>
+              <button data-cat="arte" class="btn-filter-category px-3 py-1.5 text-xs font-bold uppercase tracking-wider border border-neutral-300 bg-white text-neutral-700 hover:border-black cursor-pointer">
+                Arte, Circo & Música
+              </button>
+              <button data-cat="naturaleza" class="btn-filter-category px-3 py-1.5 text-xs font-bold uppercase tracking-wider border border-neutral-300 bg-white text-neutral-700 hover:border-black cursor-pointer">
+                Huerto & Naturaleza
+              </button>
+            </div>
+
+            <!-- Toggles de Inclusión -->
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-1.5 text-xs font-bold text-neutral-800 cursor-pointer select-none">
+                <input type="checkbox" id="check-neurofriendly" class="accent-[#E11D48] w-4 h-4 cursor-pointer" />
+                <span>🧠 Solo Neuro-Friendly</span>
+              </label>
+
+              <label class="flex items-center gap-1.5 text-xs font-bold text-neutral-800 cursor-pointer select-none">
+                <input type="checkbox" id="check-universal" class="accent-[#E11D48] w-4 h-4 cursor-pointer" />
+                <span>♿ Acceso Universal</span>
+              </label>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Grilla de Actividades en Formato Diario con Scroll Continuo -->
+      <section id="actividades-feed-section" class="space-y-10">
+        
+        <!-- Bloque HOY -->
+        <div id="group-hoy-container">
+          <div class="flex items-center gap-3 mb-4 pb-2 border-b-2 border-black">
+            <span class="w-3 h-3 bg-[#E11D48]"></span>
+            <h2 class="text-xl sm:text-2xl font-black uppercase tracking-tight text-neutral-900">
+              Actividades de Hoy
+            </h2>
+            <span class="text-xs font-mono bg-neutral-200 px-2 py-0.5 font-bold text-neutral-700">EN CURSO</span>
+          </div>
+          <div id="list-hoy" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </div>
+
+        <!-- Bloque ESTA SEMANA -->
+        <div id="group-semana-container">
+          <div class="flex items-center gap-3 mb-4 pb-2 border-b-2 border-black">
+            <span class="w-3 h-3 bg-black"></span>
+            <h2 class="text-xl sm:text-2xl font-black uppercase tracking-tight text-neutral-900">
+              Esta Semana (Viernes a Domingo)
+            </h2>
+            <span class="text-xs font-mono bg-neutral-200 px-2 py-0.5 font-bold text-neutral-700">PRÓXIMOS DÍAS</span>
+          </div>
+          <div id="list-semana" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </div>
+
+        <!-- Bloque ESTE MES -->
+        <div id="group-mes-container">
+          <div class="flex items-center gap-3 mb-4 pb-2 border-b-2 border-black">
+            <span class="w-3 h-3 bg-neutral-400"></span>
+            <h2 class="text-xl sm:text-2xl font-black uppercase tracking-tight text-neutral-900">
+              Este Mes (Grandes Encuentros)
+            </h2>
+            <span class="text-xs font-mono bg-neutral-200 px-2 py-0.5 font-bold text-neutral-700">CONVOCATORIA ABIERTA</span>
+          </div>
+          <div id="list-mes" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- Footer Compartido (Con pb-24 para no colisionar con la barra fija inferior) -->
+    <footer class="bg-white border-t-2 border-black py-8 px-4 text-center pb-24 md:pb-8 mt-12">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-neutral-600">
+        <div>
+          <strong class="text-black uppercase">ChispaPlay</strong> · Ingeniería Civil Industrial · U. de Chile
+        </div>
+        <div class="flex flex-wrap items-center justify-center gap-4 font-bold">
+          <a href="index.html" class="hover:text-black">Inicio</a>
+          <a href="actividades.html" class="hover:text-black font-black text-black">Cartelera</a>
+          <a href="nosotros.html" class="hover:text-black">Quiénes Somos</a>
+          <a href="perfil.html" class="hover:text-black">Pase Vecinal</a>
+          <a href="coordinador.html" class="hover:text-black">Coordinador</a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Scripts Modulares -->
+    <script type="module" src="/js/actividades.js"></script>
+  </body>
+</html>

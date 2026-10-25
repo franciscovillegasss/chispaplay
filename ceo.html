@@ -1,0 +1,225 @@
+<!doctype html>
+<!-- ARCHIVO: ceo.html (Panel de Inteligencia Municipal B2G & Métricas CEO) -->
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChispaPlay - Panel de Inteligencia B2G & Métricas CEO</title>
+    <meta name="description" content="Panel ejecutivo de análisis de demanda vecinal, conversión de talleres y reportes territoriales B2G." />
+    <link rel="stylesheet" href="/css/global.css" />
+  </head>
+  <body class="bg-[#F8F8F6] text-[#111111] antialiased font-sans">
+    
+    <!-- Navbar Reutilizable -->
+    <header id="navbar-container"></header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      
+      <!-- Cabecera Ejecutiva -->
+      <section class="border-b-4 border-black pb-6 mb-8">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="bg-[#111111] text-white text-[11px] font-mono font-black uppercase px-2 py-0.5 tracking-wider">
+                PANEL CEO & REPORTES MUNICIPALES B2G
+              </span>
+              <span class="bg-[#E11D48] text-white text-[11px] font-mono font-black uppercase px-2 py-0.5 tracking-wider">
+                CONFIDENCIAL
+              </span>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-neutral-900 leading-none">
+              Inteligencia Territorial de Demanda
+            </h1>
+            <p class="text-xs sm:text-sm text-neutral-600 mt-2 font-medium max-w-2xl">
+              Supervisión de métricas de tracción barrial: actividades más vistas, demanda insatisfecha por lista de espera, 
+              tiempo medio por usuario tokenizado y reportes de infraestructura de plazas.
+            </p>
+          </div>
+
+          <!-- Selector de Comuna, Reset & Exportar -->
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="ceo-commune-filter" class="bg-white border-2 border-black text-xs font-black uppercase p-2.5 outline-none shadow-[2px_2px_0px_0px_#111111]">
+              <option value="todas">Todas las Comunas</option>
+              <option value="maipu">Maipú (Santiago Poniente)</option>
+              <option value="valparaiso">Valparaíso (Cerros & Costa)</option>
+            </select>
+            <button 
+              id="btn-reset-telemetry"
+              class="bg-white hover:bg-neutral-100 text-red-600 border-2 border-red-600 text-xs font-black uppercase tracking-wider px-3.5 py-2.5 transition-colors cursor-pointer shadow-[2px_2px_0px_0px_#111111]"
+            >
+              🔄 Reiniciar datos a 0
+            </button>
+            <button 
+              id="btn-export-ceo-report"
+              class="bg-black hover:bg-[#E11D48] text-white text-xs font-black uppercase tracking-wider px-4 py-2.5 shadow-[2px_2px_0px_0px_#E11D48] transition-colors cursor-pointer"
+            >
+              📥 Exportar Informe B2G
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tarjetas KPI Principales -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        
+        <div class="bg-white border-2 border-black p-5 shadow-[4px_4px_0px_0px_#111111]">
+          <div class="text-[10px] font-mono uppercase text-neutral-500 font-bold mb-1">TIEMPO PROMEDIO / SESIÓN</div>
+          <div class="text-3xl font-black text-neutral-900 font-mono" id="kpi-avg-time">0.0 min</div>
+          <div class="text-[11px] text-[#059669] font-bold mt-1">Telemetría real capturada</div>
+        </div>
+
+        <div class="bg-white border-2 border-black p-5 shadow-[4px_4px_0px_0px_#E11D48]">
+          <div class="text-[10px] font-mono uppercase text-neutral-500 font-bold mb-1">DEMANDA INSATISFECHA (ESPERA)</div>
+          <div class="text-3xl font-black text-[#E11D48] font-mono" id="kpi-waitlist-total">0</div>
+          <div class="text-[11px] text-neutral-600 font-bold mt-1">Vecinos sin cupo asignado</div>
+        </div>
+
+        <div class="bg-white border-2 border-black p-5 shadow-[4px_4px_0px_0px_#111111]">
+          <div class="text-[10px] font-mono uppercase text-neutral-500 font-bold mb-1">RADAR WHATSAPP ACTIVOS</div>
+          <div class="text-3xl font-black text-neutral-900 font-mono" id="kpi-radar-total">0</div>
+          <div class="text-[11px] text-neutral-600 font-bold mt-1">Suscritos a cartelera semanal</div>
+        </div>
+
+        <div class="bg-white border-2 border-black p-5 shadow-[4px_4px_0px_0px_#111111]">
+          <div class="text-[10px] font-mono uppercase text-neutral-500 font-bold mb-1">REPORTES EN TERRENO (PLAZAS)</div>
+          <div class="text-3xl font-black text-neutral-900 font-mono" id="kpi-reports-total">0</div>
+          <div class="text-[11px] text-[#059669] font-bold mt-1">Desperfectos de plaza registrados</div>
+        </div>
+
+      </section>
+
+      <!-- Gráficos Interactivos con D3.js -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+        
+        <!-- Gráfico 1: Actividades Más Visualizadas vs Reservadas -->
+        <div class="bg-white border-2 border-black p-5 sm:p-6 shadow-[6px_6px_0px_0px_#111111]">
+          <div class="flex items-center justify-between border-b pb-3 mb-4">
+            <div>
+              <h2 class="text-lg font-black uppercase text-neutral-900">1. Visualizaciones vs Reservas</h2>
+              <p class="text-xs text-neutral-500 font-mono">Top actividades con mayor interés de los vecinos</p>
+            </div>
+            <span class="text-[10px] font-mono bg-neutral-100 border border-neutral-300 px-2 py-0.5 font-bold">D3.JS CHART</span>
+          </div>
+
+          <div id="chart-views-container" class="w-full h-72 flex items-center justify-center overflow-x-auto">
+            <!-- Renderizado por js/ceo.js -->
+          </div>
+
+          <div class="flex items-center justify-center gap-6 text-xs font-mono font-bold pt-3 border-t">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-neutral-900 inline-block"></span> Vistas Registradas</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-[#E11D48] inline-block"></span> Reservas Efectivas</span>
+          </div>
+        </div>
+
+        <!-- Gráfico 2: Demanda Insatisfecha B2G (Lista de Espera) -->
+        <div class="bg-white border-2 border-black p-5 sm:p-6 shadow-[6px_6px_0px_0px_#E11D48]">
+          <div class="flex items-center justify-between border-b pb-3 mb-4">
+            <div>
+              <h2 class="text-lg font-black uppercase text-neutral-900">2. Demanda Insatisfecha Municipal</h2>
+              <p class="text-xs text-neutral-500 font-mono">Donde la municipalidad debe abrir nuevos turnos</p>
+            </div>
+            <span class="text-[10px] font-mono bg-[#E11D48] text-white px-2 py-0.5 font-bold">URGENTE B2G</span>
+          </div>
+
+          <div id="chart-waitlist-container" class="w-full h-72 flex items-center justify-center overflow-x-auto">
+            <!-- Renderizado por js/ceo.js -->
+          </div>
+
+          <div class="text-xs text-neutral-600 font-mono text-center pt-3 border-t">
+            Talleres con cupos agotados donde los vecinos solicitaron lista de espera.
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Tabla de Reportes de Desperfectos en Plazas (Terreno) -->
+      <section class="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#111111] mb-12">
+        <div class="flex items-center justify-between border-b pb-4 mb-4">
+          <div>
+            <h2 class="text-xl font-black uppercase tracking-tight text-neutral-900">
+              Reportes Ciudadanos en Terreno (PIN 4120)
+            </h2>
+            <p class="text-xs text-neutral-500">
+              Notificaciones emitidas por vecinos validados en terreno para la cuadrilla municipal de obras o aseo.
+            </p>
+          </div>
+          <span id="reports-count-badge" class="text-xs font-mono font-bold bg-neutral-100 px-2 py-1">0 reportes</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono border border-neutral-300">
+            <thead class="bg-black text-white uppercase text-[10px] tracking-wider">
+              <tr>
+                <th class="p-3 border-r border-neutral-700">Hora</th>
+                <th class="p-3 border-r border-neutral-700">Plaza / Lugar</th>
+                <th class="p-3 border-r border-neutral-700">Comuna</th>
+                <th class="p-3 border-r border-neutral-700">Tipo de Falla</th>
+                <th class="p-3 border-r border-neutral-700">Detalle Vecinal</th>
+                <th class="p-3">Vecino Validador</th>
+              </tr>
+            </thead>
+            <tbody id="ceo-reports-table-body" class="divide-y divide-neutral-200">
+              <!-- Inyectado por js/ceo.js -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer Mínimo -->
+    <footer class="bg-white border-t-2 border-black py-6 px-4 text-center mt-12">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-neutral-600">
+        <div>
+          <strong class="text-black uppercase">ChispaPlay</strong> · Inteligencia Territorial B2G · U. de Chile
+        </div>
+        <div class="flex items-center gap-4 font-bold">
+          <a href="index.html" class="hover:text-black">Inicio</a>
+          <a href="actividades.html" class="hover:text-black">Cartelera</a>
+          <a href="nosotros.html" class="hover:text-black">Quiénes Somos</a>
+          <a href="coordinador.html" class="hover:text-black">Coordinadores</a>
+          <a href="ceo.html" class="hover:text-[#E11D48] text-black font-black">Panel CEO</a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- MODAL OFICIAL DE INFORME EJECUTIVO DIDECO & CONCEJO MUNICIPAL (PDF/PRINT) -->
+    <div id="modal-dideco-report" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+      <div class="dideco-print-sheet bg-white border-4 border-black w-full max-w-4xl p-6 sm:p-10 shadow-[10px_10px_0px_0px_#111111] my-auto max-h-[92vh] overflow-y-auto">
+        
+        <!-- Barra superior del modal (oculta al imprimir) -->
+        <div class="no-print-modal flex items-center justify-between pb-4 mb-6 border-b-2 border-neutral-300">
+          <div class="flex items-center gap-2">
+            <span class="bg-[#111111] text-white text-[10px] font-mono font-bold uppercase px-2 py-0.5">
+              VISTA PREVIA DE INFORME OFICIAL DIDECO
+            </span>
+            <span class="text-xs text-neutral-500 font-mono">LISTO PARA PDF / CONCEJO</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button 
+              id="btn-print-dideco-official"
+              class="bg-[#E11D48] hover:bg-[#BE123C] text-white text-xs font-black uppercase px-4 py-2 cursor-pointer shadow-[2px_2px_0px_0px_#111111] transition-colors flex items-center gap-1.5"
+            >
+              <span>🖨️</span> Imprimir / Guardar como PDF
+            </button>
+            <button 
+              id="btn-close-dideco-modal"
+              class="bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-black uppercase px-3 py-2 cursor-pointer"
+            >
+              ✕ Cerrar
+            </button>
+          </div>
+        </div>
+
+        <!-- CONTENIDO DEL INFORME CON MEMBRETE MUNICIPAL OFICIAL -->
+        <div id="dideco-report-body" class="space-y-6 text-neutral-900 font-sans">
+          <!-- Inyectado dinámicamente por js/ceo.js -->
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Scripts Modulares -->
+    <script type="module" src="/js/ceo.js"></script>
+  </body>
+</html>

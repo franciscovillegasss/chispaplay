@@ -1,0 +1,556 @@
+<!doctype html>
+<!-- ARCHIVO: coordinador.html (Panel de Coordinación Barrial & Auditoría CEO) -->
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChispaPlay - Modo Coordinador & Auditoría Barrial</title>
+    <meta name="description" content="Panel de gestión comunitaria para Juntas de Vecinos y Coordinadores. Publicación de talleres en vivo y telemetría de asistentes." />
+    <link rel="stylesheet" href="/css/global.css" />
+  </head>
+  <body class="bg-[#F8F8F6] text-[#111111] antialiased font-sans">
+    
+    <!-- Navbar Reutilizable -->
+    <header id="navbar-container"></header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      
+      <!-- Encabezado del Modo Coordinador -->
+      <section class="border-b-4 border-black pb-6 mb-8">
+        <div class="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="bg-[#111111] text-white text-[11px] font-mono uppercase tracking-wider px-2 py-0.5">
+                MODO COORDINADOR & AUDITORÍA EN VIVO
+              </span>
+              <span class="bg-[#059669] text-white text-[11px] font-mono uppercase tracking-wider px-2 py-0.5">
+                AUTORIDAD BARRIAL
+              </span>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-neutral-900 leading-none">
+              Gestión Comunitaria de Talleres
+            </h1>
+            <p class="text-sm sm:text-base text-neutral-600 mt-2 font-medium max-w-2xl">
+              Publica actividades en tiempo real que se reflejan al instante en el Ranking y en la Cartelera Diaria. 
+              Supervisa la asistencia y audita la telemetría verídica de visitantes.
+            </p>
+          </div>
+
+          <!-- Selector / Registro de Coordinador -->
+          <div class="bg-white border-2 border-black p-4 shadow-[4px_4px_0px_0px_#111111] w-full lg:w-auto">
+            <div class="text-[10px] font-mono uppercase text-neutral-500 font-bold mb-1">
+              PERFIL DE ORGANIZACIÓN ACTIVA:
+            </div>
+            <div id="active-coord-name" class="text-base font-black text-neutral-900 mb-1">
+              Cargando organización...
+            </div>
+            <div id="active-coord-details" class="text-xs font-mono text-neutral-600 mb-3">
+              Cargando PJ...
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="select-active-coord" class="bg-neutral-100 border border-neutral-300 text-xs font-bold p-1.5 outline-none">
+                <!-- Inyectado por js/coordinador.js -->
+              </select>
+              <button 
+                id="btn-open-register-coord" 
+                class="bg-black hover:bg-[#E11D48] text-white text-xs font-black uppercase px-2.5 py-1.5 transition-colors whitespace-nowrap cursor-pointer"
+              >
+                + Nueva Organización
+              </button>
+              <button 
+                id="coord-btn-scraper" 
+                class="bg-[#E11D48] hover:bg-[#BE123C] text-white text-xs font-black uppercase px-3 py-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-[2px_2px_0px_0px_#111111] flex items-center gap-1.5"
+                title="Rastreador Inteligente de Talleres Municipales"
+              >
+                <span>🏛️</span> Sincronizador Municipal
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pestañas de Acción: 1. Publicar Actividad | 2. Mis Publicaciones | 3. Telemetría CEO | 4. Métricas B2G -->
+      <section class="mb-8">
+        <div class="flex border-b-2 border-black gap-2 overflow-x-auto py-1">
+          <button id="tab-btn-publish" class="coord-tab-btn py-3 px-4 sm:px-5 text-xs sm:text-sm font-black uppercase tracking-wider border-2 border-black border-b-0 bg-black text-white cursor-pointer shrink-0">
+            + Publicar Nueva Actividad
+          </button>
+          <button id="tab-btn-my-activities" class="coord-tab-btn py-3 px-4 sm:px-5 text-xs sm:text-sm font-black uppercase tracking-wider border-2 border-transparent border-b-0 hover:border-black bg-white text-neutral-700 cursor-pointer shrink-0">
+            Mis Actividades Publicadas
+          </button>
+          <button id="tab-btn-analytics" class="coord-tab-btn py-3 px-4 sm:px-5 text-xs sm:text-sm font-black uppercase tracking-wider border-2 border-transparent border-b-0 hover:border-black bg-white text-neutral-700 cursor-pointer shrink-0 flex items-center gap-1.5">
+            <span>📊</span> Métricas & Demanda B2G
+          </button>
+          <button id="tab-btn-audit" class="coord-tab-btn py-3 px-4 sm:px-5 text-xs sm:text-sm font-black uppercase tracking-wider border-2 border-transparent border-b-0 hover:border-black bg-white text-neutral-700 cursor-pointer shrink-0 flex items-center gap-1.5">
+            <span class="w-2 h-2 bg-[#059669] rounded-full animate-pulse"></span>
+            Auditoría de Acciones
+          </button>
+        </div>
+      </section>
+
+      <!-- Panel 1: Formulario de Publicación de Nueva Actividad -->
+      <section id="panel-publish" class="bg-white border-2 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#111111] animate-fade-soft">
+        
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 mb-6">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-black uppercase tracking-tight text-neutral-900">
+              Formulario de Publicación Inmediata
+            </h2>
+            <p class="text-xs text-neutral-600">
+              Se insertará en tiempo real en el Ranking y Cartelera de la comuna seleccionada.
+            </p>
+          </div>
+
+          <button 
+            type="button" 
+            id="btn-autofill-activity"
+            class="bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border border-neutral-400 text-xs font-black uppercase px-3 py-2 cursor-pointer transition-colors"
+          >
+            ⚡ Cargar Ejemplo de Taller Oficial
+          </button>
+        </div>
+
+        <form id="form-publish-activity" class="space-y-6">
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+                Título de la Actividad *
+              </label>
+              <input 
+                type="text" 
+                id="pub-title" 
+                required 
+                placeholder="Ej. Taller de Huerto Familiar & Lombricultura"
+                class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-medium outline-none"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+                Comuna de Publicación *
+              </label>
+              <select id="pub-commune" class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-bold outline-none">
+                <option value="maipu">Maipú (Santiago Poniente · RM)</option>
+                <option value="valparaiso">Valparaíso (Costa Central · V Región)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+                Categoría *
+              </label>
+              <select id="pub-category" class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-medium outline-none">
+                <option value="Deporte & Juegos Tradicionales">Deporte & Juegos Tradicionales</option>
+                <option value="Ciencia & Mini-Robótica">Ciencia & Mini-Robótica</option>
+                <option value="Huertito & Naturaleza">Huertito & Naturaleza</option>
+                <option value="Teatro, Circo & Cuentos">Teatro, Circo & Cuentos</option>
+                <option value="Arte & Creatividad">Arte & Creatividad</option>
+                <option value="Cultura & Música">Cultura & Música</option>
+                <option value="Cocina Familiar">Cocina Familiar</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+                Temporalidad *
+              </label>
+              <select id="pub-timeframe" class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-bold outline-none">
+                <option value="hoy">Hoy (En Curso)</option>
+                <option value="semana">Esta Semana (Viernes a Domingo)</option>
+                <option value="mes">Este Mes (Convocatoria Abierta)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+                Horario / Fecha *
+              </label>
+              <input 
+                type="text" 
+                id="pub-date" 
+                required 
+                placeholder="Ej. Sábado · 11:00 a 13:00 hrs"
+                class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-medium outline-none"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+                Lugar / Plaza Real de la Comuna *
+              </label>
+              <input 
+                type="text" 
+                id="pub-location" 
+                required 
+                placeholder="Ej. Parque Tres Poniente"
+                class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-medium outline-none"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+                Cupos Totales *
+              </label>
+              <input 
+                type="number" 
+                id="pub-capacity" 
+                required 
+                min="5" 
+                max="100" 
+                value="25"
+                class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-medium outline-none"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+                Rango de Edad *
+              </label>
+              <input 
+                type="text" 
+                id="pub-age" 
+                required 
+                value="Familias y niñas/niños (6 a 15 años)"
+                class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-medium outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+              Descripción / Resumen de la Actividad *
+            </label>
+            <textarea 
+              id="pub-summary" 
+              rows="3" 
+              required 
+              placeholder="Explica brevemente de qué trata el taller y qué materiales se facilitarán..."
+              class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-medium outline-none"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+              URL de Fotografía (Unsplash o libre)
+            </label>
+            <div class="flex gap-2">
+              <input 
+                type="url" 
+                id="pub-image" 
+                value="https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=900&auto=format&fit=crop&q=80"
+                class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-mono outline-none"
+              />
+            </div>
+          </div>
+
+          <!-- Sellos de Inclusión -->
+          <div class="p-4 bg-neutral-100 border border-neutral-300">
+            <div class="text-xs font-black uppercase tracking-wider text-neutral-800 mb-2">
+              Sellos de Inclusión & Accesibilidad:
+            </div>
+            <div class="flex flex-wrap gap-4 text-xs font-bold">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="pub-check-neuro" class="accent-[#E11D48] w-4 h-4 cursor-pointer" checked />
+                <span>🧠 Sello Neuro-Friendly (Ambiente de calma y apoyos visuales)</span>
+              </label>
+
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="pub-check-universal" class="accent-[#E11D48] w-4 h-4 cursor-pointer" checked />
+                <span>♿ Acceso Universal (Rampas y senderos pavimentados)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <button 
+              type="submit" 
+              class="w-full sm:w-auto bg-[#E11D48] hover:bg-[#BE123C] text-white py-3.5 px-8 font-black uppercase tracking-wider text-sm shadow-[4px_4px_0px_0px_#111111] transition-colors cursor-pointer"
+            >
+              Publicar Actividad en Tiempo Real →
+            </button>
+          </div>
+
+        </form>
+      </section>
+
+      <!-- Panel 2: Mis Actividades Publicadas -->
+      <section id="panel-my-activities" class="hidden bg-white border-2 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#111111] animate-fade-soft">
+        <div class="flex items-center justify-between border-b pb-4 mb-6">
+          <h2 class="text-xl sm:text-2xl font-black uppercase tracking-tight text-neutral-900">
+            Actividades Gestionadas por Coordinadores
+          </h2>
+          <span id="coord-activities-count" class="text-xs font-mono font-bold text-neutral-600">0 publicaciones</span>
+        </div>
+        <div id="coord-activities-list" class="space-y-4">
+          <!-- Inyectado dinámicamente -->
+        </div>
+      </section>
+
+      <!-- Panel 3: Métricas & Demanda B2G (Gráficos Interactivos) -->
+      <section id="panel-analytics" class="hidden bg-white border-2 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#111111] animate-fade-soft">
+        
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 mb-6">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="bg-[#E11D48] text-white text-[10px] font-mono font-black uppercase px-2 py-0.5">
+                REPORTES B2G PARA MUNICIPIOS
+              </span>
+              <span class="text-xs font-mono font-bold text-neutral-500">DIDECO MAIPÚ & VALPARAÍSO</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black uppercase tracking-tight text-neutral-900">
+              Comportamiento de Usuarios & Demanda Insatisfecha
+            </h2>
+            <p class="text-xs text-neutral-600">
+              Evidencia cuantitativa para justificar asignación presupuestaria en talleres de alta demanda barrial.
+            </p>
+          </div>
+
+          <button 
+            type="button" 
+            id="btn-export-dideco" 
+            class="bg-black hover:bg-[#E11D48] text-white text-xs font-black uppercase tracking-wider px-4 py-2.5 transition-colors cursor-pointer flex items-center gap-1.5 shadow-[3px_3px_0px_0px_#999999]"
+          >
+            <span>📄</span> Exportar Reporte DIDECO
+          </button>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="border-2 border-black p-4 bg-neutral-50 shadow-[3px_3px_0px_0px_#111111]">
+            <div class="text-[10px] font-mono uppercase font-bold text-neutral-500">Visualizaciones Totales:</div>
+            <div id="kpi-total-views" class="text-2xl sm:text-3xl font-black text-neutral-900 mt-1">
+              1,420
+            </div>
+            <div class="text-[10px] font-mono text-[#059669] font-bold mt-1">↑ +24% esta semana</div>
+          </div>
+
+          <div class="border-2 border-black p-4 bg-neutral-50 shadow-[3px_3px_0px_0px_#111111]">
+            <div class="text-[10px] font-mono uppercase font-bold text-neutral-500">Cupos Confirmados:</div>
+            <div id="kpi-total-reserves" class="text-2xl sm:text-3xl font-black text-[#059669] mt-1">
+              348
+            </div>
+            <div class="text-[10px] font-mono text-neutral-500 mt-1">Validación con PIN 4120</div>
+          </div>
+
+          <div class="border-2 border-black p-4 bg-neutral-50 shadow-[3px_3px_0px_0px_#E11D48]">
+            <div class="text-[10px] font-mono uppercase font-bold text-neutral-500">Demanda Insatisfecha B2G:</div>
+            <div id="kpi-total-waitlist" class="text-2xl sm:text-3xl font-black text-[#E11D48] mt-1">
+              86
+            </div>
+            <div class="text-[10px] font-mono text-neutral-500 mt-1">Vecinos en Lista de Espera</div>
+          </div>
+
+          <div class="border-2 border-black p-4 bg-neutral-50 shadow-[3px_3px_0px_0px_#111111]">
+            <div class="text-[10px] font-mono uppercase font-bold text-neutral-500">Tiempo Promedio de Sesión:</div>
+            <div id="kpi-avg-time" class="text-2xl sm:text-3xl font-black text-neutral-900 mt-1">
+              4m 38s
+            </div>
+            <div class="text-[10px] font-mono text-neutral-500 mt-1">Por usuario tokenizado</div>
+          </div>
+        </div>
+
+        <!-- Gráficos de Comportamiento -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          
+          <!-- Gráfico 1: Actividades Más Visualizadas -->
+          <div class="border-2 border-black p-5 bg-neutral-50">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b">
+              <h3 class="text-sm font-black uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
+                <span>👁️</span> 1. Actividades Más Visualizadas
+              </h3>
+              <span class="text-[10px] font-mono text-neutral-500">RANKING DE INTERÉS</span>
+            </div>
+            
+            <div id="chart-most-viewed" class="space-y-3 font-mono text-xs">
+              <!-- Renderizado dinámicamente con barras interactivas -->
+            </div>
+          </div>
+
+          <!-- Gráfico 2: Demanda Efectiva vs. Lista de Espera B2G -->
+          <div class="border-2 border-black p-5 bg-neutral-50">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b">
+              <h3 class="text-sm font-black uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
+                <span>🔥</span> 2. Demanda Efectiva vs. Lista de Espera
+              </h3>
+              <span class="text-[10px] font-mono text-neutral-500">CUPOS vs ESPERA</span>
+            </div>
+
+            <div id="chart-demand-waitlist" class="space-y-3 font-mono text-xs">
+              <!-- Renderizado dinámicamente -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Gráfico 3: Tiempo Promedio de Sesión y Retención por Rango -->
+        <div class="border-2 border-black p-5 bg-neutral-50 mb-6">
+          <div class="flex items-center justify-between mb-4 pb-2 border-b">
+            <div>
+              <h3 class="text-sm font-black uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
+                <span>⏱️</span> 3. Distribución del Tiempo de Sesión por Usuario Tokenizado
+              </h3>
+              <p class="text-[11px] text-neutral-500">Medición de permanencia y exploración en el mapa hiperlocal de 15 minutos.</p>
+            </div>
+            <span class="text-xs font-mono font-bold text-[#059669]">82% Retención Activa</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div class="bg-white p-3 border border-neutral-300">
+              <div class="text-[10px] font-mono text-neutral-500 uppercase">Menos de 1 min (Rebote)</div>
+              <div class="text-xl font-black text-neutral-700 mt-0.5">14%</div>
+              <div class="w-full bg-neutral-200 h-2 mt-1"><div class="bg-neutral-500 h-2" style="width: 14%"></div></div>
+            </div>
+
+            <div class="bg-white p-3 border border-neutral-300">
+              <div class="text-[10px] font-mono text-neutral-500 uppercase">1 a 3 minutos</div>
+              <div class="text-xl font-black text-neutral-800 mt-0.5">26%</div>
+              <div class="w-full bg-neutral-200 h-2 mt-1"><div class="bg-black h-2" style="width: 26%"></div></div>
+            </div>
+
+            <div class="bg-white p-3 border-2 border-black shadow-[2px_2px_0px_0px_#E11D48]">
+              <div class="text-[10px] font-mono text-neutral-500 uppercase font-bold">3 a 7 minutos (Óptimo)</div>
+              <div class="text-xl font-black text-[#E11D48] mt-0.5">42%</div>
+              <div class="w-full bg-neutral-200 h-2 mt-1"><div class="bg-[#E11D48] h-2" style="width: 42%"></div></div>
+            </div>
+
+            <div class="bg-white p-3 border border-neutral-300">
+              <div class="text-[10px] font-mono text-neutral-500 uppercase">Más de 7 minutos</div>
+              <div class="text-xl font-black text-[#059669] mt-0.5">18%</div>
+              <div class="w-full bg-neutral-200 h-2 mt-1"><div class="bg-[#059669] h-2" style="width: 18%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="dideco-export-feedback" class="hidden p-4 bg-neutral-900 text-white font-mono text-xs flex items-center justify-between border-2 border-black">
+          <div>
+            <strong>✓ Reporte DIDECO Preparado:</strong> Demanda insatisfecha y ranking exportados para la Dirección de Desarrollo Comunitario.
+          </div>
+          <button id="btn-print-report" class="bg-[#E11D48] hover:bg-[#BE123C] text-white px-3 py-1 font-bold uppercase text-[10px] cursor-pointer">
+            Imprimir / Guardar PDF
+          </button>
+        </div>
+
+      </section>
+
+      <!-- Panel 4: Auditoría & Telemetría en Vivo (Modo CEO) -->
+      <section id="panel-audit" class="hidden bg-white border-2 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#111111] animate-fade-soft">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 mb-6">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="w-2.5 h-2.5 bg-[#059669] rounded-full animate-ping"></span>
+              <span class="text-xs font-mono font-bold text-[#059669] uppercase">TELEMETRÍA TRANSPARENTE EN TIEMPO REAL</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black uppercase tracking-tight text-neutral-900">
+              Auditoría de Acciones, Búsquedas y Reservas
+            </h2>
+            <p class="text-xs text-neutral-600">
+              Visualiza en vivo los eventos generados por usuarios: búsquedas, visualizaciones y reservas asociadas a su token e IP virtual.
+            </p>
+          </div>
+
+          <button 
+            type="button" 
+            id="btn-clear-logs" 
+            class="text-xs text-red-600 hover:text-red-800 font-mono font-bold uppercase underline"
+          >
+            Limpiar Registro
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono border border-neutral-300">
+            <thead class="bg-black text-white uppercase text-[10px] tracking-wider">
+              <tr>
+                <th class="p-3 border-r border-neutral-700">Hora</th>
+                <th class="p-3 border-r border-neutral-700">Token Asignado</th>
+                <th class="p-3 border-r border-neutral-700">Usuario</th>
+                <th class="p-3 border-r border-neutral-700">IP Virtual Auditada</th>
+                <th class="p-3 border-r border-neutral-700">Tipo de Evento</th>
+                <th class="p-3">Detalle de la Acción</th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body" class="divide-y divide-neutral-200 bg-white">
+              <!-- Logs inyectados por js/coordinador.js -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Modal para Registrar Nuevo Coordinador / Organización -->
+    <div id="modal-register-coord" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div class="bg-white border-4 border-black max-w-lg w-full p-6 shadow-[8px_8px_0px_0px_#111111] relative">
+        <button id="btn-close-coord-modal" class="absolute top-4 right-4 text-black hover:text-[#E11D48] text-2xl font-black focus:outline-none">✕</button>
+
+        <span class="bg-[#111111] text-white text-[10px] font-mono uppercase px-2 py-0.5">NUEVA ENTIDAD</span>
+        <h3 class="text-2xl font-black uppercase text-neutral-900 mt-1 mb-2">Registrar Organización / JJVV</h3>
+        <p class="text-xs text-neutral-600 mb-4">
+          Ingresa la personería jurídica y datos del monitor para emitir actividades oficiales.
+        </p>
+
+        <form id="form-new-coordinator" class="space-y-3">
+          <div>
+            <label class="block text-xs font-black uppercase text-neutral-800 mb-1">Nombre de la Organización o JJVV *</label>
+            <input type="text" id="coord-reg-name" required placeholder="Ej. Junta de Vecinos N° 45 El Rosal" class="w-full bg-neutral-50 border-2 border-neutral-300 p-2 text-xs font-medium outline-none focus:border-black" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-black uppercase text-neutral-800 mb-1">N° de Personalidad Jurídica (PJ Municipal) *</label>
+            <input type="text" id="coord-reg-rut" required placeholder="Ej. PJ N° 455-Maipú" class="w-full bg-neutral-50 border-2 border-neutral-300 p-2 text-xs font-medium outline-none focus:border-black" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-black uppercase text-neutral-800 mb-1">Monitor / Encargado *</label>
+              <input type="text" id="coord-reg-monitor" required placeholder="Ej. Roberto Salgado" class="w-full bg-neutral-50 border-2 border-neutral-300 p-2 text-xs font-medium outline-none focus:border-black" />
+            </div>
+            <div>
+              <label class="block text-xs font-black uppercase text-neutral-800 mb-1">WhatsApp de Consultas *</label>
+              <input type="text" id="coord-reg-whatsapp" required placeholder="Ej. +56 9 7891 0022" class="w-full bg-neutral-50 border-2 border-neutral-300 p-2 text-xs font-medium outline-none focus:border-black" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-black uppercase text-neutral-800 mb-1">Comuna Activa *</label>
+            <select id="coord-reg-commune" class="w-full bg-neutral-50 border-2 border-neutral-300 p-2 text-xs font-bold outline-none">
+              <option value="maipu">Maipú</option>
+              <option value="valparaiso">Valparaíso</option>
+            </select>
+          </div>
+
+          <div class="pt-3 flex gap-2">
+            <button type="submit" class="w-full bg-black hover:bg-[#E11D48] text-white py-3 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer">
+              Guardar y Activar Coordinador →
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Footer Compartido -->
+    <footer class="bg-white border-t-2 border-black py-8 px-4 text-center pb-24 md:pb-8 mt-12">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-neutral-600">
+        <div>
+          <strong class="text-black uppercase">ChispaPlay</strong> · Ingeniería Civil Industrial · U. de Chile
+        </div>
+        <div class="flex flex-wrap items-center justify-center gap-4 font-bold">
+          <a href="index.html" class="hover:text-black">Inicio</a>
+          <a href="actividades.html" class="hover:text-black">Cartelera</a>
+          <a href="nosotros.html" class="hover:text-black">Quiénes Somos</a>
+          <a href="perfil.html" class="hover:text-black">Pase Vecinal</a>
+          <a href="coordinador.html" class="hover:text-black font-black text-black">Coordinador</a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Scripts Modulares -->
+    <script type="module" src="/js/coordinador.js"></script>
+  </body>
+</html>

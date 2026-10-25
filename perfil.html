@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- ARCHIVO: perfil.html (Página de Perfil del Vecino & Pase Digital Auditado) -->
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChispaPlay - Mi Pase Digital Vecinal</title>
+    <meta name="description" content="Perfil verídico del vecino, token asignado, historial real de reservas y auditoría de asistencias en ChispaPlay." />
+    <link rel="stylesheet" href="/css/global.css" />
+  </head>
+  <body class="bg-[#F8F8F6] text-[#111111] antialiased font-sans">
+    
+    <!-- Navbar Reutilizable -->
+    <header id="navbar-container"></header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      
+      <!-- Contenedor Dinámico: Estado No Registrado vs. Estado Registrado -->
+      <div id="perfil-dynamic-root">
+        <!-- Renderizado dinámico desde js/perfil.js -->
+      </div>
+
+    </main>
+
+    <!-- Footer Compartido -->
+    <footer class="bg-white border-t-2 border-black py-8 px-4 text-center pb-24 md:pb-8 mt-12">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-neutral-600">
+        <div>
+          <strong class="text-black uppercase">ChispaPlay</strong> · Ingeniería Civil Industrial · U. de Chile
+        </div>
+        <div class="flex flex-wrap items-center justify-center gap-4 font-bold">
+          <a href="index.html" class="hover:text-black">Inicio</a>
+          <a href="actividades.html" class="hover:text-black">Cartelera</a>
+          <a href="nosotros.html" class="hover:text-black">Quiénes Somos</a>
+          <a href="perfil.html" class="hover:text-black font-black text-black">Pase Vecinal</a>
+          <a href="coordinador.html" class="hover:text-black">Coordinador</a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Scripts Modulares -->
+    <script type="module" src="/js/perfil.js"></script>
+  </body>
+</html>

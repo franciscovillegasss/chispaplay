@@ -1,0 +1,6 @@
+{
+  "name": "BarrioRed Chile",
+  "description": "Ecosistema hiperlocal de talleres comunitarios, control de asistencia, integración WhatsApp, sistema de rachas y seguridad barrial.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

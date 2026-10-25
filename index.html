@@ -1,0 +1,288 @@
+<!doctype html>
+<!-- ARCHIVO: index.html (Página Principal · Portada Revista con Revelación Progresiva) -->
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChispaPlay Maipú | Talleres y Actividades Familiares Gratuitas a 15 min</title>
+    <meta name="description" content="Cartelera oficial de talleres y actividades familiares 100% gratuitas a menos de 15 minutos de tu casa en Maipú y Valparaíso." />
+    
+    <!-- Open Graph / WhatsApp Social Share -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" id="og-title-meta" content="ChispaPlay | Talleres y Actividades Familiares Gratuitas a 15 min" />
+    <meta property="og:description" id="og-desc-meta" content="Cartelera oficial de talleres y actividades familiares 100% gratuitas a menos de 15 minutos de tu casa en Maipú y Valparaíso." />
+    <meta property="og:site_name" content="ChispaPlay" />
+    <meta property="og:locale" content="es_CL" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ChispaPlay | Talleres Barriales a 15 min" />
+    <meta name="twitter:description" content="Talleres y actividades comunitarias gratuitas a 15 minutos de tu casa." />
+
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json" id="schema-website-jsonld">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "ChispaPlay",
+      "applicationCategory": "CommunityApplication",
+      "operatingSystem": "All",
+      "description": "Cartelera oficial de talleres y actividades familiares 100% gratuitas a menos de 15 minutos de tu casa.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "CLP"
+      }
+    }
+    </script>
+    <script type="application/ld+json" id="schema-events-jsonld"></script>
+    <link rel="stylesheet" href="/css/global.css" />
+  </head>
+  <body class="bg-[#F8F8F6] text-[#111111] antialiased font-sans">
+    
+    <!-- Navbar Reutilizable -->
+    <header id="navbar-container"></header>
+
+    <!-- CONTENEDOR DEDICADO DE ACTIVIDAD (REEMPLAZA ACORDEÓN CON VISTA COMPLETA EDITORIAL) -->
+    <section id="dedicated-activity-container" class="hidden min-h-[calc(100vh-140px)]"></section>
+
+    <!-- LIENZO PRINCIPAL ROJO (PORTADA DE REVISTA INTERACTIVA CON REVELACIÓN PROGRESIVA) -->
+    <section 
+      id="hero-interactive-canvas" 
+      class="bg-[#E11D48] text-white min-h-[calc(100vh-80px)] flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-10 transition-all duration-500 ease-out"
+    >
+      <div class="max-w-4xl w-full flex flex-col items-center text-center transition-all duration-500">
+        
+        <!-- PASO 1: TITULAR GIGANTE EN BLANCO -->
+        <div 
+          id="hero-step1-container" 
+          class="transition-all duration-500 ease-out flex flex-wrap items-center justify-center gap-3 sm:gap-4 my-auto"
+        >
+          <h1 class="text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-tight text-white leading-none whitespace-nowrap">
+            ¿QUÉ HACEMOS EN
+          </h1>
+          
+          <!-- Recuadro Blanco de Selección Maipú | Valparaíso -->
+          <div class="inline-flex items-center gap-2 bg-white p-1.5 sm:p-2 border-4 border-black shadow-[6px_6px_0px_0px_#111111]">
+            <button 
+              type="button" 
+              id="btn-select-maipu" 
+              data-commune="maipu"
+              class="btn-commune-choice px-4 sm:px-6 py-2 sm:py-2.5 font-black uppercase text-base sm:text-xl tracking-wider transition-all cursor-pointer bg-neutral-100 text-neutral-800 hover:bg-black hover:text-white"
+            >
+              MAIPÚ
+            </button>
+            <button 
+              type="button" 
+              id="btn-select-valpo" 
+              data-commune="valparaiso"
+              class="btn-commune-choice px-4 sm:px-6 py-2 sm:py-2.5 font-black uppercase text-base sm:text-xl tracking-wider transition-all cursor-pointer bg-neutral-100 text-neutral-800 hover:bg-black hover:text-white"
+            >
+              VALPARAÍSO
+            </button>
+          </div>
+
+          <span class="text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-tight text-white leading-none">
+            ?
+          </span>
+        </div>
+
+        <!-- PROPUESTA DE VALOR CLARA (ABOVE THE FOLD - PRIMEROS 3 SEGUNDOS) -->
+        <p class="mt-4 sm:mt-6 text-sm sm:text-base md:text-lg font-bold text-white max-w-2xl mx-auto leading-relaxed drop-shadow-sm font-sans tracking-wide">
+          Cartelera oficial de talleres y actividades familiares 100% gratuitas a menos de 15 minutos de tu casa.
+        </p>
+
+        <!-- PASO 2: CAJA BLANCA (ELIGE TU SECTOR DE REFERENCIA) - Inicialmente oculta -->
+        <div 
+          id="hero-step2-container" 
+          class="hidden w-full max-w-2xl bg-white text-black border-4 border-black p-5 sm:p-6 shadow-[8px_8px_0px_0px_#111111] mt-6 text-left animate-slide-up"
+        >
+          <div class="flex items-center justify-between border-b-2 border-neutral-200 pb-2 mb-4">
+            <span class="text-xs font-mono font-black uppercase text-[#E11D48] tracking-wider">
+              PASO 2 · ELIGE TU SECTOR DE REFERENCIA (15 MIN)
+            </span>
+            <span id="step2-commune-label" class="text-xs font-mono font-bold uppercase text-neutral-500"></span>
+          </div>
+
+          <!-- Cuadrícula interactiva de sectores -->
+          <div id="step2-sectors-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <!-- Inyectado por js/index.js -->
+          </div>
+        </div>
+
+        <!-- PASO 3: TEMPORALIDAD (1. HOY, 2. ESTA SEMANA, 3. ESTE MES) - Inicialmente oculta -->
+        <div 
+          id="hero-step3-container" 
+          class="hidden w-full max-w-2xl bg-black text-white border-4 border-white p-5 sm:p-6 shadow-[8px_8px_0px_0px_#FFFFFF] mt-6 text-left animate-slide-up"
+        >
+          <div class="flex items-center justify-between border-b border-neutral-800 pb-2 mb-4">
+            <span class="text-xs font-mono font-black uppercase tracking-wider text-neutral-300">
+              PASO 3 · SELECCIONA TEMPORALIDAD:
+            </span>
+            <span id="step3-ref-label" class="text-xs font-mono text-[#E11D48] font-bold"></span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button 
+              type="button" 
+              data-timeframe="hoy" 
+              class="btn-step3-timeframe py-4 px-3 text-center font-black uppercase tracking-wider border-2 border-neutral-600 hover:border-white bg-neutral-900 text-white transition-all cursor-pointer"
+            >
+              <div class="text-base sm:text-lg">1. HOY</div>
+              <div class="text-[11px] font-mono text-neutral-400 font-normal">Talleres en curso</div>
+            </button>
+
+            <button 
+              type="button" 
+              data-timeframe="semana" 
+              class="btn-step3-timeframe py-4 px-3 text-center font-black uppercase tracking-wider border-2 border-neutral-600 hover:border-white bg-neutral-900 text-white transition-all cursor-pointer"
+            >
+              <div class="text-base sm:text-lg">2. ESTA SEMANA</div>
+              <div class="text-[11px] font-mono text-neutral-400 font-normal">Viernes a Domingo</div>
+            </button>
+
+            <button 
+              type="button" 
+              data-timeframe="mes" 
+              class="btn-step3-timeframe py-4 px-3 text-center font-black uppercase tracking-wider border-2 border-neutral-600 hover:border-white bg-neutral-900 text-white transition-all cursor-pointer"
+            >
+              <div class="text-base sm:text-lg">3. ESTE MES</div>
+              <div class="text-[11px] font-mono text-neutral-400 font-normal">Grandes convocatorias</div>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- GRILLA BLANCA INFERIOR CON RANKING EDITORIAL (REVELADA EN PASO 3 CON AUTO-SCROLL) -->
+    <main id="ranking-section" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 scroll-mt-6 animate-slide-up">
+      
+      <div class="mb-8 pb-3 border-b-2 border-black flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-wider font-bold text-[#E11D48] mb-1">
+            CURADURÍA EDITORIAL
+          </div>
+          <h2 id="ranking-headline" class="text-2xl sm:text-3xl font-black uppercase tracking-tight text-neutral-900 leading-tight">
+            Ranking de Actividades
+          </h2>
+        </div>
+        <div class="flex items-center gap-4 text-xs font-mono font-bold">
+          <span id="ranking-count-label" class="text-neutral-600">0 actividades</span>
+          <a href="actividades.html" class="text-black hover:text-[#E11D48] underline uppercase">
+            Ver Cartelera Completa →
+          </a>
+        </div>
+      </div>
+
+      <!-- Contenedor del Ranking -->
+      <div id="ranking-list-container" class="space-y-6 mb-10">
+        <!-- Tarjetas inyectadas dinámicamente con clase .ranking-card -->
+      </div>
+
+      <!-- BANNER DE RETENCIÓN B2G: RADAR BARRIAL DE LOS JUEVES (WHATSAPP) -->
+      <section id="radar-barrial-banner" class="bg-[#111111] text-white border-4 border-black p-6 sm:p-8 shadow-[8px_8px_0px_0px_#E11D48] mt-10 mb-8">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div class="max-w-2xl">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="bg-[#E11D48] text-white text-[10px] font-mono font-black uppercase px-2 py-0.5 tracking-wider">
+                RETENCIÓN DE BARRIO
+              </span>
+              <span class="text-xs font-mono text-neutral-400 font-bold">CERO SPAM · 100% GRATUITO</span>
+            </div>
+            <h3 class="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white mb-2 leading-tight">
+              ¿No alcanzaste cupo hoy? Activa el Radar Barrial
+            </h3>
+            <p class="text-sm text-neutral-300 font-medium leading-relaxed">
+              Recibe cada jueves en tu WhatsApp los mejores talleres gratuitos cerca de 
+              <strong id="radar-sector-name" class="text-white underline">tu sector seleccionado</strong>.
+            </p>
+          </div>
+
+          <!-- Formulario de Suscripción al Radar -->
+          <form id="form-radar-whatsapp" class="w-full lg:w-auto shrink-0 flex flex-col sm:flex-row gap-2">
+            <input 
+              type="tel" 
+              id="input-radar-phone" 
+              required 
+              placeholder="+56 9 8765 4321" 
+              class="bg-neutral-900 border-2 border-neutral-600 focus:border-white text-white p-3 text-sm font-mono outline-none rounded-none placeholder:text-neutral-500 min-w-[240px]"
+            />
+            <button 
+              type="submit" 
+              id="btn-radar-submit"
+              class="bg-[#E11D48] hover:bg-[#BE123C] text-white font-black uppercase tracking-wider text-xs px-5 py-3 transition-colors cursor-pointer whitespace-nowrap shadow-[2px_2px_0px_0px_#FFFFFF]"
+            >
+              Recibir cartelera semanal →
+            </button>
+          </form>
+        </div>
+
+        <div id="radar-success-message" class="hidden mt-4 p-3 bg-neutral-900 border border-[#059669] text-[#059669] text-xs font-mono font-bold flex items-center gap-2">
+          <span>✓</span> ¡Radar Barrial activado! Te enviaremos los 3 mejores talleres cada jueves a las 18:00 hrs.
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Modal para Reportar Desperfecto en Plaza (PIN Terreno 4120) -->
+    <div id="modal-park-defect" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-soft">
+      <div class="bg-white border-4 border-black max-w-md w-full p-6 shadow-[8px_8px_0px_0px_#E11D48] relative">
+        <button id="btn-close-defect-modal" class="absolute top-4 right-4 text-black hover:text-[#E11D48] text-2xl font-black leading-none focus:outline-none">
+          ✕
+        </button>
+
+        <div class="flex items-center gap-2 mb-2">
+          <span class="bg-[#111111] text-white text-[10px] font-mono font-black uppercase px-2 py-0.5">
+            VALIDACIÓN TERRENO · PIN 4120
+          </span>
+          <span class="text-xs font-mono text-[#059669] font-bold">DESPACHO MUNICIPAL</span>
+        </div>
+
+        <h3 class="text-xl font-black uppercase tracking-tight text-neutral-900 mb-1">
+          Reportar Desperfecto en Plaza
+        </h3>
+        <p id="defect-modal-subtitle" class="text-xs text-neutral-600 mb-4 font-mono">
+          Lugar: Plaza Comunitaria
+        </p>
+
+        <form id="form-report-defect" class="space-y-4">
+          <div>
+            <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+              Tipo de Falla o Necesidad *
+            </label>
+            <select id="select-defect-type" class="w-full bg-neutral-50 border-2 border-black p-2.5 text-xs font-bold outline-none">
+              <option value="Luminaria o Foco Apagado">Luminaria o Foco Apagado</option>
+              <option value="Bancos o Mobiliario Roto">Bancos o Mobiliario Roto</option>
+              <option value="Juegos Infantiles Inseguros">Juegos Infantiles Inseguros</option>
+              <option value="Aseo y Basura Acumulada">Aseo y Basura Acumulada</option>
+              <option value="Acceso Universal Bloqueado">Acceso Universal Bloqueado (Rampa)</option>
+              <option value="Falta de Agua en Bebedero">Falta de Agua en Bebedero</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+              Detalle para la Cuadrilla *
+            </label>
+            <textarea 
+              id="textarea-defect-detail" 
+              required 
+              rows="3" 
+              placeholder="Ej. El farol poniente junto a los columpios no enciende de noche..."
+              class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-xs font-medium outline-none rounded-none"
+            ></textarea>
+          </div>
+
+          <button 
+            type="submit" 
+            class="w-full bg-black hover:bg-[#E11D48] text-white py-3 font-black uppercase tracking-wider text-xs transition-colors cursor-pointer shadow-[2px_2px_0px_0px_#E11D48]"
+          >
+            Enviar Reporte Municipal con PIN 4120 →
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Scripts Modulares -->
+    <script type="module" src="/js/index.js"></script>
+  </body>
+</html>
