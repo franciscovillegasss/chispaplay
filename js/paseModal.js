@@ -3,7 +3,7 @@
    Credencial 'Pase Vecinal Chispa' con Código QR Offline Dinámico
    ========================================================================== */
 
-import QRCode from 'qrcode';
+import { QRCode } from './qrHelper.js';
 import {
   getTrackedUser,
   getReservedActivityIds,

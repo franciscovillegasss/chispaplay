@@ -22,7 +22,7 @@ import { renderNavbar } from './navbar.js';
 import { renderBottomNav } from './bottomNav.js';
 import { openUserModal } from './userModal.js';
 import { showToast } from './toast.js';
-import QRCode from 'qrcode';
+import { QRCode } from './qrHelper.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   renderNavbar('perfil');

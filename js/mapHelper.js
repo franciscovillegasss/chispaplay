@@ -3,7 +3,8 @@
    Mini-Mapa Interactivo de Caminata 15 Minutos (Leaflet + OpenStreetMap 100% Gratis)
    ========================================================================== */
 
-import L from 'leaflet';
+// Leaflet cargado globalmente desde CDN en <head>
+const L = typeof window !== 'undefined' ? window.L : null;
 
 // Mapa de instancias activas para evitar inicializaciones duplicadas en el mismo contenedor
 const activeMapInstances = new Map();

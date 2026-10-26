@@ -35,18 +35,11 @@
     }
     </script>
     <script type="application/ld+json" id="schema-events-jsonld"></script>
-    <!-- Import Map para resolución nativa en navegador (GitHub Pages y local) -->
-    <script type="importmap">
-    {
-      "imports": {
-        "leaflet": "https://esm.sh/leaflet@1.9.4",
-        "qrcode": "https://esm.sh/qrcode@1.5.4",
-        "d3": "https://esm.sh/d3@7.9.0"
-      }
-    }
-    </script>
+    <!-- Frameworks y Librerías Globales UMD (Compatibilidad 100% Nativa sin Bundler) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
     <link rel="stylesheet" href="./css/global.css" />
   </head>
   <body class="bg-[#F8F8F6] text-[#111111] antialiased font-sans">

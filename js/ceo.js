@@ -3,7 +3,8 @@
    Lógica Modular del Panel CEO & Gráficos D3.js de Demanda Municipal Real
    ========================================================================== */
 
-import * as d3 from 'd3';
+// D3.js cargado globalmente desde CDN en <head>
+const d3 = typeof window !== 'undefined' ? window.d3 : null;
 import {
   getCeoMetrics,
   getParkDefectReports,

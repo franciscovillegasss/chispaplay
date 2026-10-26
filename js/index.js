@@ -34,7 +34,6 @@ import { renderBottomNav } from './bottomNav.js';
 import { openUserModal } from './userModal.js';
 import { showToast } from './toast.js';
 import { renderDedicatedActivityPage } from './activityPage.js';
-import { openParkDefectModal } from './defectModal.js';
 
 // Estado inicial estricto: Todo en null hasta la interacción del usuario
 let selectedComuna = null;
