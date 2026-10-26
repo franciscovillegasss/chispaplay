@@ -20,7 +20,8 @@ import {
   isUserOnWaitlist,
   joinWaitlist,
   hasValidUserContact,
-  getActiveCommune
+  getActiveCommune,
+  escapeHtml
 } from './state.js';
 import { getGoogleCalendarUrl, downloadIcsFile, getGoogleMapsDirectionsUrl } from './calendar.js';
 import { renderActivityMap, destroyActivityMap } from './mapHelper.js';
@@ -68,6 +69,12 @@ export function renderDedicatedActivityPage(activityId, containerEl, onBackCallb
     currentMountedMapId = null;
   }
 
+  // Ocultar barra de navegación inferior móvil para evitar colisiones con la barra fija de conversión
+  const mobileBottomNav = document.getElementById('chispaplay-mobile-bottom-nav');
+  if (mobileBottomNav) {
+    mobileBottomNav.classList.add('hidden');
+  }
+
   const communeObj = COMMUNES_DATA[activity.commune] || COMMUNES_DATA[getActiveCommune()] || { name: 'Comuna' };
   const distInfo = calculateDistanceAndWalkingTime(activity.coordinates);
   const isReserved = isActivityReserved(activity.id);
@@ -95,7 +102,7 @@ export function renderDedicatedActivityPage(activityId, containerEl, onBackCallb
 
   // URLs de calendario y mapa
   const googleCalUrl = getGoogleCalendarUrl(activity);
-  const googleMapsUrl = getGoogleMapsDirectionsUrl(activity.coordinates, activity.locationName);
+  const googleMapsUrl = getGoogleMapsDirectionsUrl(activity);
 
   containerEl.innerHTML = `
     <div class="dedicated-activity-view max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 animate-fade-soft font-sans">
@@ -370,10 +377,10 @@ export function renderDedicatedActivityPage(activityId, containerEl, onBackCallb
                   ? reviews.map(r => `
                       <div class="p-3 bg-neutral-50 border border-neutral-300 text-xs">
                         <div class="flex items-center justify-between mb-1">
-                          <strong class="font-mono uppercase font-black text-neutral-900">${r.author}</strong>
-                          <span class="text-[10px] font-mono text-neutral-500">${r.timeAgo || 'Reciente'}</span>
+                          <strong class="font-mono uppercase font-black text-neutral-900">${escapeHtml(r.authorName || r.author || 'Vecino')}</strong>
+                          <span class="text-[10px] font-mono text-neutral-500">${escapeHtml(r.date || r.timeAgo || 'Reciente')}</span>
                         </div>
-                        <p class="text-neutral-700 font-medium">${r.comment}</p>
+                        <p class="text-neutral-700 font-medium">${escapeHtml(r.comment || '')}</p>
                       </div>
                     `).join('')
                   : `
@@ -655,9 +662,17 @@ export function renderDedicatedActivityPage(activityId, containerEl, onBackCallb
 
   // VINCULAR EVENTOS INTERACTIVOS
 
+  const restoreBottomNav = () => {
+    const mobileBottomNav = document.getElementById('chispaplay-mobile-bottom-nav');
+    if (mobileBottomNav) {
+      mobileBottomNav.classList.remove('hidden');
+    }
+  };
+
   // Botón Volver
   const btnBack = containerEl.querySelector('#btn-dedicated-back');
   btnBack?.addEventListener('click', () => {
+    restoreBottomNav();
     if (onBackCallback) {
       onBackCallback();
     } else if (window.history.length > 1) {
@@ -678,7 +693,7 @@ export function renderDedicatedActivityPage(activityId, containerEl, onBackCallb
     }
 
     const res = toggleActivityReservation(activity.id);
-    if (res.reserved) {
+    if (res === true || res?.reserved) {
       showToast('CUPO CONFIRMADO', `¡Aseguraste tu cupo gratis para ${activity.locationName}!`, 'success');
     }
     renderDedicatedActivityPage(activity.id, containerEl, onBackCallback, backButtonLabel);
@@ -745,8 +760,8 @@ export function renderDedicatedActivityPage(activityId, containerEl, onBackCallb
     btnCheckinGps.disabled = true;
     btnCheckinGps.textContent = '📍 Verificando GPS...';
 
-    validateGroundAttendanceWithGps(activity.id, (res) => {
-      if (res.success) {
+    validateGroundAttendanceWithGps(activity.id, activity.coordinates, (res) => {
+      if (res.ok || res.success) {
         showToast('ASISTENCIA VALIDADA', '¡Bienvenido a la plaza! Check-in registrado con éxito.', 'success');
       } else {
         // Fallback validación manual
@@ -773,7 +788,7 @@ export function renderDedicatedActivityPage(activityId, containerEl, onBackCallb
     const text = textInput?.value.trim();
 
     if (text) {
-      addNeighborhoodReview(activity.id, text, name);
+      addNeighborhoodReview(activity.id, { authorName: name, comment: text });
       showToast('CONSEJO PUBLICADO', '¡Gracias por aportar al muro comunitario del parque!', 'success');
       renderDedicatedActivityPage(activity.id, containerEl, onBackCallback, backButtonLabel);
     }

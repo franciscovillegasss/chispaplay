@@ -439,7 +439,7 @@ export function openLocationModal(isForcedFirstTime = false) {
 
           <div class="mb-4">
             <span class="bg-[#111111] text-white text-[11px] font-mono uppercase tracking-widest px-2.5 py-1">
-              BARRIOPLAY · CONFIGURACIÓN HIPERLOCAL
+              CHISPAPLAY · CONFIGURACIÓN HIPERLOCAL
             </span>
           </div>
 

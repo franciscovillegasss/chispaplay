@@ -14,7 +14,8 @@ import {
   validateGroundAttendance,
   validateGroundAttendanceWithGps,
   getAttendanceDetail,
-  reportParkDefect
+  reportParkDefect,
+  escapeHtml
 } from './state.js';
 import { getGoogleCalendarUrl, downloadIcsFile, getGoogleMapsDirectionsUrl } from './calendar.js';
 import { renderNavbar } from './navbar.js';
@@ -25,7 +26,6 @@ import QRCode from 'qrcode';
 
 document.addEventListener('DOMContentLoaded', () => {
   renderNavbar('perfil');
-  renderBottomNav('perfil');
   renderProfileView();
 
   window.addEventListener('chispaplay:user-registered', () => {
@@ -132,10 +132,10 @@ function renderProfileView() {
               </span>
             </div>
             <h1 class="text-3xl sm:text-4xl font-black uppercase tracking-tight text-neutral-900 leading-none">
-              ${user.name}
+              ${escapeHtml(user.name)}
             </h1>
             <div class="mt-2 text-xs font-mono text-neutral-600">
-              Comuna: <strong>${user.commune}</strong> · Contacto: <strong>${user.emailOrPhone}</strong>
+              Comuna: <strong>${escapeHtml(user.commune)}</strong> · Contacto: <strong>${escapeHtml(user.emailOrPhone)}</strong>
             </div>
           </div>
 
@@ -147,7 +147,7 @@ function renderProfileView() {
             <div>
               <div class="text-[9px] font-mono uppercase text-neutral-500 font-bold">TOKEN VECINAL:</div>
               <div class="text-xl font-mono font-black text-[#E11D48] tracking-wider leading-none mb-1.5">
-                ${user.token}
+                ${escapeHtml(user.token)}
               </div>
               <button 
                 type="button" 
@@ -164,19 +164,19 @@ function renderProfileView() {
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-neutral-100 border border-neutral-300 text-xs font-mono mb-6">
           <div>
             <span class="text-neutral-500 uppercase block text-[10px]">Contacto Registrado:</span>
-            <strong class="text-neutral-900 font-bold">${user.emailOrPhone}</strong>
+            <strong class="text-neutral-900 font-bold">${escapeHtml(user.emailOrPhone)}</strong>
           </div>
           <div>
             <span class="text-neutral-500 uppercase block text-[10px]">Comuna Base:</span>
-            <strong class="text-neutral-900 font-bold">${user.commune}</strong>
+            <strong class="text-neutral-900 font-bold">${escapeHtml(user.commune)}</strong>
           </div>
           <div>
             <span class="text-neutral-500 uppercase block text-[10px]">IP de Auditoría:</span>
-            <strong class="text-neutral-900 font-bold">${user.ip}</strong>
+            <strong class="text-neutral-900 font-bold">${escapeHtml(user.ip)}</strong>
           </div>
           <div>
             <span class="text-neutral-500 uppercase block text-[10px]">Fecha de Expedición:</span>
-            <strong class="text-neutral-900 font-bold">${user.registeredAt}</strong>
+            <strong class="text-neutral-900 font-bold">${escapeHtml(user.registeredAt)}</strong>
           </div>
         </div>
 

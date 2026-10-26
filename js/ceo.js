@@ -10,7 +10,8 @@ import {
   getRadarSubscribers,
   resetTelemetryData,
   generateDidecoExecutiveReport,
-  logAction
+  logAction,
+  escapeHtml
 } from './state.js';
 import { renderNavbar } from './navbar.js';
 
@@ -110,10 +111,10 @@ function renderViewsChart(data) {
     .append('g')
     .attr('transform', `translate(${margin.left},${margin.top})`);
 
-  // Escalas
+  // Escalas con ID único para prevenir sobreescritura de barras
   const x0 = d3
     .scaleBand()
-    .domain(data.map(d => d.title.substring(0, 16) + '...'))
+    .domain(data.map(d => d.id))
     .rangeRound([0, width])
     .paddingInner(0.2);
 
@@ -127,11 +128,16 @@ function renderViewsChart(data) {
   const yMax = Math.max(10, maxVal * 1.15);
   const y = d3.scaleLinear().domain([0, yMax]).range([height, 0]);
 
-  // Ejes
+  // Ejes con formateador de texto del taller
   svg
     .append('g')
     .attr('transform', `translate(0,${height})`)
-    .call(d3.axisBottom(x0))
+    .call(
+      d3.axisBottom(x0).tickFormat(id => {
+        const item = data.find(d => d.id === id);
+        return item ? item.title.substring(0, 16) + '...' : id;
+      })
+    )
     .selectAll('text')
     .style('text-anchor', 'end')
     .attr('dx', '-.8em')
@@ -154,7 +160,7 @@ function renderViewsChart(data) {
     .data(data)
     .enter()
     .append('g')
-    .attr('transform', d => `translate(${x0(d.title.substring(0, 16) + '...')},0)`);
+    .attr('transform', d => `translate(${x0(d.id)},0)`);
 
   // Barra Vistas
   group
@@ -197,7 +203,7 @@ function renderWaitlistChart(data) {
 
   const x = d3
     .scaleBand()
-    .domain(data.map(d => d.title.substring(0, 16) + '...'))
+    .domain(data.map(d => d.id))
     .rangeRound([0, width])
     .padding(0.3);
 
@@ -209,7 +215,12 @@ function renderWaitlistChart(data) {
   svg
     .append('g')
     .attr('transform', `translate(0,${height})`)
-    .call(d3.axisBottom(x))
+    .call(
+      d3.axisBottom(x).tickFormat(id => {
+        const item = data.find(d => d.id === id);
+        return item ? item.title.substring(0, 16) + '...' : id;
+      })
+    )
     .selectAll('text')
     .style('text-anchor', 'end')
     .attr('dx', '-.8em')
@@ -232,7 +243,7 @@ function renderWaitlistChart(data) {
     .data(data)
     .enter()
     .append('rect')
-    .attr('x', d => x(d.title.substring(0, 16) + '...'))
+    .attr('x', d => x(d.id))
     .attr('y', d => y(d.waitlist))
     .attr('width', x.bandwidth())
     .attr('height', d => Math.max(0, height - y(d.waitlist)))
@@ -246,7 +257,7 @@ function renderWaitlistChart(data) {
     .data(data)
     .enter()
     .append('text')
-    .attr('x', d => (x(d.title.substring(0, 16) + '...') || 0) + x.bandwidth() / 2)
+    .attr('x', d => (x(d.id) || 0) + x.bandwidth() / 2)
     .attr('y', d => y(d.waitlist) - 5)
     .attr('text-anchor', 'middle')
     .style('font-size', '11px')
@@ -283,16 +294,16 @@ function renderReportsTable(reports) {
     .map(
       r => `
     <tr class="hover:bg-neutral-50 border-b border-neutral-200">
-      <td class="p-3 font-bold text-neutral-800">${r.timestamp}</td>
-      <td class="p-3 font-bold text-neutral-900">${r.locationName}</td>
-      <td class="p-3 uppercase text-[10px] font-black">${r.commune}</td>
+      <td class="p-3 font-bold text-neutral-800">${escapeHtml(r.timestamp)}</td>
+      <td class="p-3 font-bold text-neutral-900">${escapeHtml(r.locationName)}</td>
+      <td class="p-3 uppercase text-[10px] font-black">${escapeHtml(r.commune)}</td>
       <td class="p-3">
         <span class="bg-red-100 text-[#E11D48] px-2 py-0.5 text-[10px] font-bold border border-red-300">
-          ${r.issueType}
+          ${escapeHtml(r.issueType)}
         </span>
       </td>
-      <td class="p-3 text-neutral-700">${r.details}</td>
-      <td class="p-3 text-neutral-600 font-mono text-[11px]">${r.reporterName} (${r.reporterToken})</td>
+      <td class="p-3 text-neutral-700">${escapeHtml(r.details)}</td>
+      <td class="p-3 text-neutral-600 font-mono text-[11px]">${escapeHtml(r.reporterName)} (${escapeHtml(r.reporterToken)})</td>
     </tr>
   `
     )

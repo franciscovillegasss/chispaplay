@@ -27,7 +27,6 @@ let selectedActivityId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   renderNavbar('actividades');
-  renderBottomNav('actividades');
   setupSearchAndFilters();
   setupViewModeToggle();
   renderDailyFeed();
@@ -439,8 +438,10 @@ export function openDedicatedActivity(activityId, pushState = true) {
   selectedActivityId = activityId;
   const mainFeed = document.getElementById('actividades-main-content');
   const dedicatedContainer = document.getElementById('dedicated-activity-container');
+  const mobileBottomNav = document.getElementById('chispaplay-mobile-bottom-nav');
 
   if (mainFeed) mainFeed.classList.add('hidden');
+  if (mobileBottomNav) mobileBottomNav.classList.add('hidden');
 
   if (dedicatedContainer) {
     dedicatedContainer.classList.remove('hidden');
@@ -471,12 +472,14 @@ export function closeDedicatedActivity(pushState = true) {
   selectedActivityId = null;
   const mainFeed = document.getElementById('actividades-main-content');
   const dedicatedContainer = document.getElementById('dedicated-activity-container');
+  const mobileBottomNav = document.getElementById('chispaplay-mobile-bottom-nav');
 
   if (dedicatedContainer) {
     dedicatedContainer.classList.add('hidden');
     dedicatedContainer.innerHTML = '';
   }
   if (mainFeed) mainFeed.classList.remove('hidden');
+  if (mobileBottomNav) mobileBottomNav.classList.remove('hidden');
 
   if (pushState) {
     try {

@@ -83,6 +83,16 @@ export function getVirtualIp() {
 // ==========================================================================
 // 2. USUARIO VECINAL & TOKEN PERSISTENTE (CERO RUT)
 // ==========================================================================
+export function escapeHtml(str = '') {
+  if (typeof str !== 'string') return String(str ?? '');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export function formatChileanWhatsApp(phoneStr = '') {
   const clean = phoneStr.replace(/[^0-9]/g, '');
   if (!clean) return phoneStr;
@@ -339,12 +349,38 @@ export function validateGroundAttendance(activityId, options = {}) {
 /**
  * Intenta validar asistencia en terreno verificando geocerca GPS nativa del navegador (<250 metros)
  */
-export function validateGroundAttendanceWithGps(activityId, activityCoords, onResult) {
+export function validateGroundAttendanceWithGps(activityId, maybeCoords, maybeCallback) {
+  let activityCoords = maybeCoords;
+  let onResult = maybeCallback;
+
+  // Si se invocó con 2 argumentos: validateGroundAttendanceWithGps(activityId, callback)
+  if (typeof maybeCoords === 'function') {
+    onResult = maybeCoords;
+    const all = getAllActivities();
+    const act = all.find(a => a.id === activityId);
+    activityCoords = act?.coordinates || null;
+  }
+
+  if (typeof onResult !== 'function') {
+    onResult = () => {};
+  }
+
   if (!navigator.geolocation) {
     onResult({
       ok: false,
+      success: false,
       reason: 'NO_GPS_SUPPORT',
       message: 'Tu navegador o dispositivo no soporta geolocalización GPS.'
+    });
+    return;
+  }
+
+  if (!activityCoords || typeof activityCoords.lat !== 'number' || typeof activityCoords.lng !== 'number') {
+    onResult({
+      ok: false,
+      success: false,
+      reason: 'NO_COORDINATES',
+      message: 'No se encontraron las coordenadas de referencia para esta plaza.'
     });
     return;
   }
@@ -370,6 +406,7 @@ export function validateGroundAttendanceWithGps(activityId, activityCoords, onRe
         });
         onResult({
           ok: true,
+          success: true,
           isGps: true,
           distance,
           message: `✓ Presencia certificada por GPS a ${distance}m de la cancha.`
@@ -377,6 +414,7 @@ export function validateGroundAttendanceWithGps(activityId, activityCoords, onRe
       } else {
         onResult({
           ok: false,
+          success: false,
           reason: 'OUT_OF_GEOFENCE',
           distance,
           userLat,
@@ -388,8 +426,9 @@ export function validateGroundAttendanceWithGps(activityId, activityCoords, onRe
     (err) => {
       onResult({
         ok: false,
+        success: false,
         reason: 'GPS_PERMISSION_DENIED',
-        error: err.message,
+        error: err?.message || 'Error de permisos',
         message: 'No pudimos acceder a tu GPS. Por favor habilita los permisos de ubicación en tu navegador.'
       });
     },
@@ -432,7 +471,7 @@ export function getAllActivities() {
 }
 
 export function addCustomActivity(activityData) {
-  const id = `ws-coord-${Date.now()}`;
+  const id = `ws-coord-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   
   // Garantizar todos los campos requeridos para el formato artículo de revista
   const newActivity = {
@@ -995,50 +1034,73 @@ export function setLiveNotice(activityId, noticeData) {
 // 13. MURO COMUNITARIO DE LA PLAZA (RESEÑAS & CONSEJOS DE VECINOS)
 // ==========================================================================
 const DEFAULT_COMMUNITY_REVIEWS = {
-  'ws-maipu-01': [
+  'ws-mai-metro-1': [
     {
       id: 'rev-m01-1',
       authorName: 'Mónica Retamal',
+      author: 'Mónica Retamal',
       sector: 'Metro Plaza de Maipú',
-      comment: 'Llevé a mi hijo de 7 años. El monitor Juan tiene excelente paciencia y la reja perimetral da mucha seguridad para los pequeños.',
+      comment: 'Llevé a mi hijo de 7 años. El monitor Gabriel tiene excelente paciencia y la reja perimetral da mucha seguridad para los pequeños.',
       rating: 5,
       date: 'Hace 3 días',
+      timeAgo: 'Hace 3 días',
       isVerifiedNeighbor: true,
       tag: 'Ideal Familias'
     },
     {
       id: 'rev-m01-2',
       authorName: 'Sebastián C.',
+      author: 'Sebastián C.',
       sector: 'Pajaritos',
-      comment: 'Traigan casco y coderas propias si tienen, aunque el monitor presta algunos implementos en buen estado.',
+      comment: 'Traigan lentes de sol y agua fresca. Los telescopios solares están certificados y el aprendizaje fue tremendo.',
       rating: 5,
       date: 'Hace 1 semana',
+      timeAgo: 'Hace 1 semana',
       isVerifiedNeighbor: true,
       tag: 'Consejo Útil'
     }
   ],
-  'ws-maipu-02': [
+  'ws-mai-metro-2': [
     {
       id: 'rev-m02-1',
       authorName: 'Rodrigo Troncoso',
+      author: 'Rodrigo Troncoso',
       sector: 'Barrio Longitudinal',
-      comment: 'Las barras del Parque están impecables. Lleven agua bien helada y magnesio porque da sol de tarde.',
+      comment: 'Las mesas de robótica están impecables. Lleven agua bien helada porque da sol de tarde.',
       rating: 5,
       date: 'Hace 2 días',
+      timeAgo: 'Hace 2 días',
       isVerifiedNeighbor: true,
-      tag: 'Alta Intensidad'
+      tag: 'Alta Participación'
     }
   ],
-  'ws-valpo-01': [
+  'ws-val-ale-1': [
     {
       id: 'rev-v01-1',
       authorName: 'Don René Gómez',
+      author: 'Don René Gómez',
       sector: 'Cerro Alegre',
-      comment: 'Hermosa iniciativa. Las bancas bajo los ficus tienen muy buena sombra y se comparte un mate muy grato entre partidas.',
+      comment: 'Hermosa iniciativa. Las bancas bajo los árboles tienen muy buena sombra y se comparte un grato momento vecinal.',
       rating: 5,
       date: 'Ayer',
+      timeAgo: 'Ayer',
       isVerifiedNeighbor: true,
       tag: 'Tercera Edad'
+    }
+  ],
+  // Alias de compatibilidad
+  'ws-maipu-01': [
+    {
+      id: 'rev-m01-1',
+      authorName: 'Mónica Retamal',
+      author: 'Mónica Retamal',
+      sector: 'Metro Plaza de Maipú',
+      comment: 'Excelente monitor y muy buen espacio para los niños.',
+      rating: 5,
+      date: 'Hace 3 días',
+      timeAgo: 'Hace 3 días',
+      isVerifiedNeighbor: true,
+      tag: 'Ideal Familias'
     }
   ]
 };
@@ -1062,29 +1124,50 @@ export function getReviewsForActivity(activityId) {
     {
       id: `rev-default-${activityId}`,
       authorName: 'Claudia Poblete',
+      author: 'Claudia Poblete',
       sector: 'Vecina del Barrio',
       comment: 'Muy buena iniciativa comunitaria. La plaza cuenta con sombra y los monitores llegan a la hora.',
       rating: 5,
       date: 'Esta semana',
+      timeAgo: 'Esta semana',
       isVerifiedNeighbor: true,
       tag: 'Comunidad Verificada'
     }
   ];
 }
 
-export function addNeighborhoodReview(activityId, { authorName, comment, rating = 5, tag = 'Vecino Activo' }) {
+export function addNeighborhoodReview(activityId, optionsOrComment, maybeAuthor = 'Vecino Anónimo') {
+  let authorName = maybeAuthor;
+  let comment = '';
+  let rating = 5;
+  let tag = 'Vecino Activo';
+
+  if (typeof optionsOrComment === 'string') {
+    comment = optionsOrComment;
+  } else if (optionsOrComment && typeof optionsOrComment === 'object') {
+    authorName = optionsOrComment.authorName || optionsOrComment.author || maybeAuthor;
+    comment = optionsOrComment.comment || '';
+    rating = optionsOrComment.rating ?? 5;
+    tag = optionsOrComment.tag || tag;
+  }
+
   const map = getNeighborhoodReviewsMap();
   const list = map[activityId] ? [...map[activityId]] : (DEFAULT_COMMUNITY_REVIEWS[activityId] ? [...DEFAULT_COMMUNITY_REVIEWS[activityId]] : []);
 
   const isVerifiedNeighbor = isAttendanceValidated(activityId) || isActivityReserved(activityId);
 
+  const cleanAuthor = (authorName || 'Vecino Anónimo').trim();
+  const cleanComment = (comment || '').trim();
+
   const newReview = {
-    id: `rev-${Date.now()}`,
-    authorName: (authorName || 'Vecino Anónimo').trim(),
+    id: `rev-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    authorName: cleanAuthor,
+    author: cleanAuthor,
     sector: getActiveReferencePoint()?.name || 'Sector Local',
-    comment: comment.trim(),
+    comment: cleanComment,
     rating: Number(rating) || 5,
     date: 'Recién publicado',
+    timeAgo: 'Recién publicado',
     isVerifiedNeighbor,
     tag: isVerifiedNeighbor ? 'Asistencia Verificada ✓' : tag
   };

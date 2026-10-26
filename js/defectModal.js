@@ -78,30 +78,41 @@ export function openParkDefectModal(activityId = null, locationName = null) {
 
     document.body.appendChild(modal);
 
-    const closeBtn = modal.querySelector('#btn-close-defect-modal');
-    closeBtn?.addEventListener('click', () => modal.classList.add('hidden'));
-
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.classList.add('hidden');
     });
+  }
 
-    const form = modal.querySelector('#form-report-defect');
-    form?.addEventListener('submit', (e) => {
+  const subtitle = modal.querySelector('#defect-modal-subtitle') || document.getElementById('defect-modal-subtitle');
+  if (subtitle) {
+    subtitle.textContent = `Lugar: ${defaultLocation}`;
+  }
+
+  const closeBtn = modal.querySelector('#btn-close-defect-modal') || document.getElementById('btn-close-defect-modal');
+  if (closeBtn && !closeBtn.dataset.closeBound) {
+    closeBtn.dataset.closeBound = 'true';
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+  }
+
+  const form = modal.querySelector('#form-report-defect') || document.getElementById('form-report-defect');
+  if (form && !form.dataset.defectBound) {
+    form.dataset.defectBound = 'true';
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const issueType = modal.querySelector('#select-defect-type').value;
-      const detail = modal.querySelector('#textarea-defect-detail').value.trim();
+      const selectEl = form.querySelector('#select-defect-type');
+      const textareaEl = form.querySelector('#textarea-defect-detail');
+      const issueType = selectEl ? selectEl.value : 'Desperfecto en Plaza';
+      const detail = textareaEl ? textareaEl.value.trim() : '';
 
-      reportParkDefect(currentReportingTarget.id, issueType, detail);
-      showToast('AVISO REGISTRADO', `Se notificó a cuadrilla vecinal sobre ${currentReportingTarget.locationName}.`, 'success');
+      const targetId = currentReportingTarget?.id || 'plaza-general';
+      const targetLocation = currentReportingTarget?.locationName || 'Plaza Comunitaria';
+
+      reportParkDefect(targetId, issueType, detail);
+      showToast('AVISO REGISTRADO', `Se notificó a cuadrilla vecinal sobre ${targetLocation}.`, 'success');
 
       form.reset();
       modal.classList.add('hidden');
     });
-  } else {
-    const subtitle = document.getElementById('defect-modal-subtitle');
-    if (subtitle) {
-      subtitle.textContent = `Lugar: ${defaultLocation}`;
-    }
   }
 
   modal.classList.remove('hidden');

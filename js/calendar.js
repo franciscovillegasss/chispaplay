@@ -106,10 +106,21 @@ export function downloadIcsFile(activity) {
 
 /**
  * Genera enlace a Google Maps para caminar desde el sector a la plaza (100% gratuito)
+ * Soporta tanto el objeto de actividad completo como pares de coordenadas directas
  */
-export function getGoogleMapsDirectionsUrl(activity) {
-  if (activity.coordinates && activity.coordinates.lat && activity.coordinates.lng) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${activity.coordinates.lat},${activity.coordinates.lng}&travelmode=walking`;
+export function getGoogleMapsDirectionsUrl(target, fallbackLocationName = '') {
+  if (!target) return 'https://www.google.com/maps';
+
+  const lat = target?.coordinates?.lat ?? target?.lat;
+  const lng = target?.coordinates?.lng ?? target?.lng;
+
+  if (typeof lat === 'number' && typeof lng === 'number') {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
   }
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${activity.locationName}, ${activity.address || ''}`)}`;
+
+  const locationName = target?.locationName || fallbackLocationName || '';
+  const address = target?.address || '';
+  const query = `${locationName} ${address}`.trim() || 'Plaza Comunitaria';
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }

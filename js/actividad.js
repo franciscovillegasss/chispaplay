@@ -10,7 +10,6 @@ import { getAllActivities } from './state.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   renderNavbar('actividades');
-  renderBottomNav('actividades');
 
   const params = new URLSearchParams(window.location.search);
   let activityId = params.get('id');

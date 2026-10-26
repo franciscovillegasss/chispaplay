@@ -9,7 +9,8 @@ import {
   getReservedActivityIds,
   getAllActivities,
   calculateDistanceAndWalkingTime,
-  logAction
+  logAction,
+  escapeHtml
 } from './state.js';
 import { openUserModal } from './userModal.js';
 import { showToast } from './toast.js';
@@ -91,21 +92,21 @@ export function openPaseVecinalModal() {
             <div class="flex-1 text-center sm:text-left">
               <div class="text-[10px] font-mono uppercase text-neutral-500 font-bold">VECINO ACREDITADO</div>
               <h3 class="text-2xl font-black uppercase tracking-tight text-neutral-900 leading-none mt-1">
-                ${user.name}
+                ${escapeHtml(user.name)}
               </h3>
               
               <div class="mt-2.5 space-y-1 text-xs font-mono">
                 <div class="flex items-center justify-center sm:justify-start gap-2">
                   <span class="text-neutral-500">TOKEN:</span>
-                  <span class="font-black text-[#E11D48] text-base">${user.token}</span>
+                  <span class="font-black text-[#E11D48] text-base">${escapeHtml(user.token)}</span>
                 </div>
                 <div class="flex items-center justify-center sm:justify-start gap-2">
                   <span class="text-neutral-500">CONTACTO:</span>
-                  <span class="font-bold text-neutral-900">${user.whatsapp || user.contact || '+56 9 8765 4321'}</span>
+                  <span class="font-bold text-neutral-900">${escapeHtml(user.whatsapp || user.contact || '+56 9 8765 4321')}</span>
                 </div>
                 <div class="flex items-center justify-center sm:justify-start gap-2">
                   <span class="text-neutral-500">COMUNA:</span>
-                  <span class="font-bold text-neutral-800">${user.commune || 'Comuna'}</span>
+                  <span class="font-bold text-neutral-800">${escapeHtml(user.commune || 'Comuna')}</span>
                 </div>
               </div>
 

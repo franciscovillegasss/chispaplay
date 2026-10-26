@@ -34,6 +34,7 @@ import { renderBottomNav } from './bottomNav.js';
 import { openUserModal } from './userModal.js';
 import { showToast } from './toast.js';
 import { renderDedicatedActivityPage } from './activityPage.js';
+import { openParkDefectModal } from './defectModal.js';
 
 // Estado inicial estricto: Todo en null hasta la interacción del usuario
 let selectedComuna = null;
@@ -594,9 +595,11 @@ export function openDedicatedActivity(activityId, pushState = true) {
   const heroCanvas = document.getElementById('hero-interactive-canvas');
   const rankingSection = document.getElementById('ranking-section');
   const dedicatedContainer = document.getElementById('dedicated-activity-container');
+  const mobileBottomNav = document.getElementById('chispaplay-mobile-bottom-nav');
 
   if (heroCanvas) heroCanvas.classList.add('hidden');
   if (rankingSection) rankingSection.classList.add('hidden');
+  if (mobileBottomNav) mobileBottomNav.classList.add('hidden');
 
   if (dedicatedContainer) {
     dedicatedContainer.classList.remove('hidden');
@@ -628,6 +631,7 @@ export function closeDedicatedActivity(pushState = true) {
   const heroCanvas = document.getElementById('hero-interactive-canvas');
   const rankingSection = document.getElementById('ranking-section');
   const dedicatedContainer = document.getElementById('dedicated-activity-container');
+  const mobileBottomNav = document.getElementById('chispaplay-mobile-bottom-nav');
 
   if (dedicatedContainer) {
     dedicatedContainer.classList.add('hidden');
@@ -636,6 +640,9 @@ export function closeDedicatedActivity(pushState = true) {
   if (heroCanvas) heroCanvas.classList.remove('hidden');
   if (selectedTimeframe && rankingSection) {
     rankingSection.classList.remove('hidden');
+  }
+  if (mobileBottomNav) {
+    mobileBottomNav.classList.remove('hidden');
   }
 
   if (pushState) {
@@ -701,16 +708,18 @@ function initParkDefectModal() {
     closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
   }
 
-  if (form && modal) {
+  if (form && modal && !form.dataset.defectBound) {
+    form.dataset.defectBound = 'true';
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const issueType = document.getElementById('select-defect-type').value;
-      const detail = document.getElementById('textarea-defect-detail').value.trim();
+      const issueType = document.getElementById('select-defect-type')?.value || 'Desperfecto en Plaza';
+      const detail = document.getElementById('textarea-defect-detail')?.value.trim() || '';
 
-      if (currentReportingActivity) {
-        reportParkDefect(currentReportingActivity.id, issueType, detail);
-        showToast('REPORTE REGISTRADO', `Se envió la solicitud para ${currentReportingActivity.locationName}.`, 'success');
-      }
+      const targetId = currentReportingActivity?.id || 'plaza-general';
+      const targetLoc = currentReportingActivity?.locationName || (selectedSector ? selectedSector.name : 'Plaza Comunitaria');
+
+      reportParkDefect(targetId, issueType, detail);
+      showToast('REPORTE REGISTRADO', `Se envió la solicitud para ${targetLoc}.`, 'success');
 
       form.reset();
       modal.classList.add('hidden');
