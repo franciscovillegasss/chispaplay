@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <link rel="stylesheet" href="./css/global.css" />
   </head>
   <body class="bg-[#F8F8F6] text-[#111111] antialiased font-sans">
@@ -79,7 +80,10 @@
       <!-- Pestañas de Acción: 1. Publicar Actividad | 2. Mis Publicaciones | 3. Telemetría CEO | 4. Métricas B2G -->
       <section class="mb-8">
         <div class="flex border-b-2 border-black gap-2 overflow-x-auto py-1">
-          <button id="tab-btn-publish" class="coord-tab-btn py-3 px-4 sm:px-5 text-xs sm:text-sm font-black uppercase tracking-wider border-2 border-black border-b-0 bg-black text-white cursor-pointer shrink-0">
+          <button id="tab-btn-scan-qr" class="coord-tab-btn py-3 px-4 sm:px-5 text-xs sm:text-sm font-black uppercase tracking-wider border-2 border-black border-b-0 bg-black text-white cursor-pointer shrink-0 flex items-center gap-1.5">
+            <span class="text-base">📷</span> Escáner QR de Asistencia
+          </button>
+          <button id="tab-btn-publish" class="coord-tab-btn py-3 px-4 sm:px-5 text-xs sm:text-sm font-black uppercase tracking-wider border-2 border-transparent border-b-0 hover:border-black bg-white text-neutral-700 cursor-pointer shrink-0">
             + Publicar Nueva Actividad
           </button>
           <button id="tab-btn-my-activities" class="coord-tab-btn py-3 px-4 sm:px-5 text-xs sm:text-sm font-black uppercase tracking-wider border-2 border-transparent border-b-0 hover:border-black bg-white text-neutral-700 cursor-pointer shrink-0">
@@ -95,8 +99,127 @@
         </div>
       </section>
 
+      <!-- Panel Escáner QR de Asistencia en Terreno -->
+      <section id="panel-scan-qr" class="bg-white border-2 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#111111] animate-fade-soft mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 mb-6">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="bg-[#059669] text-white text-[10px] font-mono font-bold uppercase px-2 py-0.5">
+                CONTROL DE ASISTENCIA EN TERRENO
+              </span>
+              <span class="text-xs font-mono font-bold text-neutral-600">VALIDACIÓN OFICIAL B2G</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black uppercase tracking-tight text-neutral-900">
+              Escáner QR del Pase Vecinal
+            </h2>
+            <p class="text-xs text-neutral-600">
+              Escanea el código QR en la pantalla del celular del vecino o ingresa su token de 4 dígitos.
+            </p>
+          </div>
+
+          <!-- Selector de Taller Activo -->
+          <div class="bg-neutral-50 border-2 border-black p-3 w-full sm:w-80">
+            <label class="block text-[10px] font-mono font-bold uppercase text-neutral-600 mb-1">
+              Taller donde se toma asistencia:
+            </label>
+            <select id="scan-activity-select" class="w-full bg-white border border-neutral-300 p-1.5 text-xs font-bold outline-none">
+              <!-- Cargado dinámicamente -->
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <!-- Columna Izquierda: Escáner de Cámara y Manual (7 cols) -->
+          <div class="lg:col-span-7 space-y-6">
+            
+            <!-- Visor de Cámara QR -->
+            <div class="bg-[#F8F8F6] border-2 border-black p-5 text-center">
+              <div id="qr-camera-box" class="space-y-4">
+                <div class="flex flex-wrap justify-center gap-3">
+                  <button type="button" id="btn-start-camera" class="bg-black hover:bg-[#059669] text-white py-2.5 px-4 text-xs font-black uppercase tracking-wider transition-colors shadow-[2px_2px_0px_0px_#111111] flex items-center gap-2 cursor-pointer">
+                    <span>📷</span> Encender Cámara
+                  </button>
+                  <button type="button" id="btn-stop-camera" class="hidden bg-neutral-200 hover:bg-neutral-300 text-neutral-800 py-2.5 px-4 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer">
+                    Detener Cámara
+                  </button>
+                </div>
+                
+                <div id="reader-container" class="max-w-xs mx-auto overflow-hidden bg-white border-2 border-dashed border-neutral-300 rounded-lg p-2 min-h-[220px] flex items-center justify-center">
+                  <div id="qr-reader" class="w-full"></div>
+                  <div id="qr-camera-placeholder" class="text-xs text-neutral-400 font-mono py-8">
+                    Haz clic en "Encender Cámara" para activar el lector óptico en terreno
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Entrada Manual de Token / Subir Imagen -->
+            <div class="bg-white border-2 border-black p-4">
+              <h4 class="text-xs font-black uppercase tracking-wider text-neutral-900 mb-2 flex items-center gap-1.5">
+                <span>⌨️</span> Validación Manual Alternativa (Sin Cámara)
+              </h4>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input 
+                  type="text" 
+                  id="input-manual-token" 
+                  placeholder="Ej: CHISPA-MAIPU-8821 o TOK-CHI-12345" 
+                  class="flex-1 bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2 text-xs font-mono uppercase font-bold outline-none"
+                />
+                <button 
+                  type="button" 
+                  id="btn-validate-manual" 
+                  class="bg-black hover:bg-[#E11D48] text-white py-2 px-4 text-xs font-black uppercase tracking-wider transition-colors shadow-[2px_2px_0px_0px_#111111] whitespace-nowrap cursor-pointer"
+                >
+                  Validar Asistencia
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Columna Derecha: Tarjeta de Verificación y Resumen (5 cols) -->
+          <div class="lg:col-span-5 space-y-4">
+            
+            <!-- Tarjeta de Confirmación de Asistencia -->
+            <div id="qr-verification-card" class="hidden bg-emerald-50 border-3 border-[#059669] p-5 shadow-[4px_4px_0px_0px_#059669] animate-fade-soft">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="w-3 h-3 rounded-full bg-[#059669] animate-ping"></span>
+                <span class="text-xs font-mono font-black uppercase text-[#059669]">
+                  ✓ ASISTENCIA OFICIAL CONFIRMADA
+                </span>
+              </div>
+              <h3 id="verified-neighbor-name" class="text-2xl font-black uppercase tracking-tight text-neutral-900">
+                Vecino Acreditado
+              </h3>
+              <div class="text-xs font-mono text-neutral-600 mt-2 space-y-1">
+                <div>Token: <strong id="verified-neighbor-token" class="text-black font-black"></strong></div>
+                <div>Taller: <span id="verified-activity-title"></span></div>
+                <div>Hora: <span id="verified-timestamp" class="text-emerald-800 font-bold"></span></div>
+              </div>
+            </div>
+
+            <!-- Registro de Asistencias Validadas Hoy -->
+            <div class="bg-[#F8F8F6] border-2 border-black p-4">
+              <div class="flex items-center justify-between mb-3 border-b pb-2">
+                <h4 class="text-xs font-black uppercase tracking-wider text-neutral-900">
+                  Asistencias Hoy (<span id="coord-scanned-count">0</span>)
+                </h4>
+                <button type="button" id="btn-export-attendance-csv" class="text-[11px] font-mono font-bold text-neutral-600 hover:text-black underline cursor-pointer">
+                  📥 Exportar CSV
+                </button>
+              </div>
+
+              <div id="coord-attendance-list" class="space-y-1.5 max-h-60 overflow-y-auto pr-1 text-xs">
+                <div class="text-neutral-400 font-mono text-center py-4">Aún no se han escaneado pases vecinales hoy.</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
       <!-- Panel 1: Formulario de Publicación de Nueva Actividad -->
-      <section id="panel-publish" class="bg-white border-2 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#111111] animate-fade-soft">
+      <section id="panel-publish" class="hidden bg-white border-2 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#111111] animate-fade-soft">
         
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 mb-6">
           <div>
@@ -241,17 +364,48 @@
             ></textarea>
           </div>
 
+          <!-- Dirección Física para Google Maps -->
           <div>
             <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
-              URL de Fotografía (Unsplash o libre)
+              Dirección Física Exacta (Para Navegación Google Maps) *
             </label>
-            <div class="flex gap-2">
-              <input 
-                type="url" 
-                id="pub-image" 
-                value="https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=900&auto=format&fit=crop&q=80"
-                class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-mono outline-none"
-              />
+            <input 
+              type="text" 
+              id="pub-address" 
+              required 
+              placeholder="Ej: Av. Pajaritos 2045, Maipú / Paseo Dimalow 166, Cerro Alegre"
+              class="w-full bg-neutral-50 border-2 border-neutral-300 focus:border-black p-2.5 text-sm font-medium outline-none"
+            />
+          </div>
+
+          <!-- Subida de Fotografía para la Grilla -->
+          <div>
+            <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+              Fotografía de la Actividad para la Grilla y Cartelera
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center bg-neutral-50 p-3 border-2 border-neutral-300">
+              <div>
+                <span class="text-[11px] font-bold text-neutral-600 block mb-1">Subir archivo desde tu dispositivo:</span>
+                <input 
+                  type="file" 
+                  id="pub-image-file" 
+                  accept="image/*"
+                  class="text-xs file:mr-2 file:py-1.5 file:px-3 file:border-2 file:border-black file:text-xs file:font-black file:bg-white file:cursor-pointer"
+                />
+              </div>
+              <div>
+                <span class="text-[11px] font-bold text-neutral-600 block mb-1">O pegar URL de imagen:</span>
+                <input 
+                  type="url" 
+                  id="pub-image" 
+                  value="https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=900&auto=format&fit=crop&q=80"
+                  class="w-full bg-white border border-neutral-300 p-1.5 text-xs font-mono outline-none"
+                />
+              </div>
+            </div>
+            <div id="pub-image-preview-box" class="mt-2 hidden flex items-center gap-3 p-2 bg-white border border-neutral-300">
+              <img id="pub-image-preview" src="" alt="Vista previa" class="w-16 h-12 object-cover border border-black" />
+              <span id="pub-image-status" class="text-xs font-mono text-[#059669] font-bold">✓ Imagen lista para colocar en la grilla</span>
             </div>
           </div>
 

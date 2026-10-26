@@ -12,7 +12,9 @@ import {
   calculateDistanceAndWalkingTime,
   isActivityReserved,
   isUserOnWaitlist,
-  logAction
+  logAction,
+  startRealTimeGps,
+  getRealTimeGps
 } from './state.js';
 import { renderNavbar } from './navbar.js';
 import { renderBottomNav } from './bottomNav.js';
@@ -30,6 +32,30 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSearchAndFilters();
   setupViewModeToggle();
   renderDailyFeed();
+
+  // Botón GPS en Tiempo Real
+  const gpsBtn = document.getElementById('btn-realtime-gps-actividades');
+  if (gpsBtn) {
+    gpsBtn.addEventListener('click', () => {
+      gpsBtn.innerHTML = '<span>🛰️ Buscando señal...</span>';
+      startRealTimeGps(
+        (pos) => {
+          gpsBtn.className = 'inline-flex items-center gap-1.5 px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider bg-emerald-600 text-white border-2 border-black shadow-[3px_3px_0px_0px_#111111] cursor-pointer transition-colors';
+          gpsBtn.innerHTML = '<span class="w-2 h-2 rounded-full bg-white animate-ping"></span><span>🛰️ GPS Activo</span>';
+          renderDailyFeed();
+        },
+        (err) => {
+          alert('No se pudo obtener el GPS: ' + (err.message || 'Permiso denegado'));
+          gpsBtn.className = 'inline-flex items-center gap-1.5 px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider bg-white border-2 border-black hover:bg-neutral-900 hover:text-white shadow-[3px_3px_0px_0px_#111111] cursor-pointer transition-colors';
+          gpsBtn.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>🛰️ GPS En Vivo</span>';
+        }
+      );
+    });
+  }
+
+  window.addEventListener('chispaplay:gps-updated', () => {
+    renderDailyFeed();
+  });
 
   // Soporte de enlace directo a actividad (?actividad=ID o ?id=ID)
   const urlParams = new URLSearchParams(window.location.search);

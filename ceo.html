@@ -21,6 +21,56 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       
+      <!-- PANTALLA DE ACCESO RESTRINGIDO CEO -->
+      <section id="ceo-auth-overlay" class="max-w-md mx-auto my-12 bg-white border-4 border-black p-6 sm:p-8 shadow-[8px_8px_0px_0px_#111111] animate-fade-soft">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-red-600 text-white text-[10px] font-mono font-black uppercase px-2 py-0.5">
+            ÁREA RESTRINGIDA
+          </span>
+          <span class="text-xs font-mono font-bold text-neutral-600">SEGURIDAD B2G</span>
+        </div>
+        
+        <h2 class="text-2xl font-black uppercase tracking-tight text-neutral-900 mb-2">
+          Panel de Inteligencia CEO
+        </h2>
+        <p class="text-xs text-neutral-600 font-mono mb-6 leading-relaxed">
+          Este panel contiene lectura confidencial de datos de vecinos, asistencias auditadas en terreno y telemetría territorial. Ingrese la Clave Maestra CEO para continuar.
+        </p>
+
+        <form id="ceo-auth-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-black uppercase tracking-wider text-neutral-800 mb-1">
+              Clave Maestra CEO *
+            </label>
+            <input 
+              type="password" 
+              id="ceo-password-input" 
+              required 
+              placeholder="Ingresa la clave maestra (def: CHISPA-CEO-2026)" 
+              class="w-full bg-neutral-50 border-2 border-black p-2.5 text-sm font-mono font-bold outline-none"
+            />
+          </div>
+
+          <div id="ceo-auth-error" class="hidden text-xs font-mono font-bold text-red-600 bg-red-50 p-2 border border-red-300">
+            Clave incorrecta. Acceso denegado.
+          </div>
+
+          <button 
+            type="submit" 
+            class="w-full bg-black hover:bg-[#E11D48] text-white py-3 font-black uppercase tracking-wider text-xs transition-colors cursor-pointer shadow-[2px_2px_0px_0px_#E11D48]"
+          >
+            🔓 Desbloquear Panel Confidencial
+          </button>
+        </form>
+
+        <div class="mt-4 pt-4 border-t text-[11px] font-mono text-neutral-500 text-center">
+          ChispaPlay · Sistema Municipal B2G Protegido
+        </div>
+      </section>
+
+      <!-- CONTENEDOR PRINCIPAL DEL DASHBOARD (PROTEGIDO) -->
+      <div id="ceo-dashboard-content" class="hidden space-y-8">
+      
       <!-- Cabecera Ejecutiva -->
       <section class="border-b-4 border-black pb-6 mb-8">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -171,6 +221,88 @@
         </div>
       </section>
 
+            <!-- TABLA EN VIVO: PADRÓN DE VECINOS REGISTRADOS -->
+        <section class="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#111111]">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-black pb-3 mb-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="bg-[#059669] text-white text-[10px] font-mono font-bold uppercase px-2 py-0.5">
+                  BASE DE DATOS EN TIEMPO REAL
+                </span>
+                <span class="text-xs font-mono font-bold text-neutral-600">AUDITORÍA VERÍDICA</span>
+              </div>
+              <h3 class="text-xl font-black uppercase tracking-tight text-neutral-900">
+                Padrón de Vecinos Registrados (<span id="ceo-live-users-count">0</span>)
+              </h3>
+            </div>
+            
+            <button 
+              type="button" 
+              id="btn-export-users-csv"
+              class="bg-black hover:bg-[#059669] text-white text-xs font-black uppercase px-3.5 py-2 shadow-[2px_2px_0px_0px_#111111] transition-colors cursor-pointer"
+            >
+              📥 Descargar Padrón Completo (CSV)
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs font-mono">
+              <thead>
+                <tr class="bg-neutral-100 border-b-2 border-black text-neutral-700 uppercase">
+                  <th class="p-2.5">Token Vecinal</th>
+                  <th class="p-2.5">Nombre Completo</th>
+                  <th class="p-2.5">Contacto (WhatsApp / Email)</th>
+                  <th class="p-2.5">Comuna</th>
+                  <th class="p-2.5">IP Registrada</th>
+                  <th class="p-2.5">Fecha / Hora</th>
+                </tr>
+              </thead>
+              <tbody id="ceo-live-users-tbody">
+                <tr>
+                  <td colspan="6" class="p-4 text-center text-neutral-400">Cargando base de datos de vecinos...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TABLA EN VIVO: LOG AUDITADO DE ASISTENCIAS EN TERRENO (QR & GPS) -->
+        <section class="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#111111]">
+          <div class="flex items-center justify-between border-b-2 border-black pb-3 mb-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="bg-[#111111] text-white text-[10px] font-mono font-bold uppercase px-2 py-0.5">
+                  TELEMETRÍA EN TERRENO
+                </span>
+                <span class="text-xs font-mono font-bold text-neutral-600">VALIDACIONES IN SITU</span>
+              </div>
+              <h3 class="text-xl font-black uppercase tracking-tight text-neutral-900">
+                Registro de Asistencias Validadas (<span id="ceo-live-attendances-count">0</span>)
+              </h3>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto max-h-72 overflow-y-auto">
+            <table class="w-full text-left border-collapse text-xs font-mono">
+              <thead>
+                <tr class="bg-neutral-100 border-b-2 border-black text-neutral-700 uppercase sticky top-0">
+                  <th class="p-2.5">Vecino</th>
+                  <th class="p-2.5">Token</th>
+                  <th class="p-2.5">Taller / Actividad</th>
+                  <th class="p-2.5">Método de Validación</th>
+                  <th class="p-2.5">Hora de Validación</th>
+                </tr>
+              </thead>
+              <tbody id="ceo-live-attendances-tbody">
+                <tr>
+                  <td colspan="5" class="p-4 text-center text-neutral-400">Sin asistencias registradas aún.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div><!-- Cierre #ceo-dashboard-content -->
     </main>
 
     <!-- Footer Mínimo -->

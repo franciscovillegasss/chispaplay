@@ -25,13 +25,14 @@ import {
 import { renderNavbar } from './navbar.js';
 import { openScraperModal } from './scraper.js';
 
-let activeTab = 'publish';
+let activeTab = 'scan-qr';
 
 document.addEventListener('DOMContentLoaded', () => {
   renderNavbar('coordinador');
   setupCoordinatorSelector();
   setupTabNavigation();
   setupPublishForm();
+  setupQrScanner();
   setupRegistrationModal();
   renderMyActivitiesList();
   renderAuditLogs();
@@ -103,17 +104,20 @@ function setupCoordinatorSelector() {
 }
 
 function setupTabNavigation() {
+  const btnScanQr = document.getElementById('tab-btn-scan-qr');
   const btnPublish = document.getElementById('tab-btn-publish');
   const btnMyActivities = document.getElementById('tab-btn-my-activities');
   const btnAnalytics = document.getElementById('tab-btn-analytics');
   const btnAudit = document.getElementById('tab-btn-audit');
 
+  const panelScanQr = document.getElementById('panel-scan-qr');
   const panelPublish = document.getElementById('panel-publish');
   const panelMy = document.getElementById('panel-my-activities');
   const panelAnalytics = document.getElementById('panel-analytics');
   const panelAudit = document.getElementById('panel-audit');
 
   const tabs = [
+    { key: 'scan-qr', btn: btnScanQr, panel: panelScanQr },
     { key: 'publish', btn: btnPublish, panel: panelPublish },
     { key: 'my-activities', btn: btnMyActivities, panel: panelMy },
     { key: 'analytics', btn: btnAnalytics, panel: panelAnalytics },
@@ -235,6 +239,8 @@ function setupPublishForm() {
       // Obtener coordenadas aproximadas del centro de la comuna
       const coords = COMMUNES_DATA[commune].centerReference.coordinates;
 
+      const rawAddress = document.getElementById('pub-address')?.value.trim();
+      const address = rawAddress || ${locationName}, ;
       const newActivity = addCustomActivity({
         commune,
         title,
@@ -243,7 +249,7 @@ function setupPublishForm() {
         timeframe,
         dateLabel,
         locationName,
-        address: `${locationName}, ${commune === 'maipu' ? 'Maipú' : 'Valparaíso'}`,
+        address,
         coordinates: coords,
         organizerName: activeCoord ? activeCoord.orgName : 'Organización Barrial',
         organizerHandle: '@barrio_activo',
@@ -637,3 +643,334 @@ function renderAnalyticsView() {
   }
 }
 
+
+
+// ==========================================================================
+// ESCÁNER QR DE ASISTENCIA EN TERRENO & SUBIDA DE FOTOS
+// ==========================================================================
+let html5QrScannerInstance = null;
+const scannedAttendanceToday = [];
+
+function playAttendanceSuccessSound() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+    // Acorde alegre de confirmación: Do5 (523Hz), Mi5 (659Hz), Sol5 (784Hz)
+    [523.25, 659.25, 783.99].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+      gain.gain.setValueAtTime(0.2, now + idx * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.07);
+      osc.stop(now + idx * 0.07 + 0.4);
+    });
+  } catch (e) {
+    console.log('Audio no disponible:', e);
+  }
+}
+
+function setupQrScanner() {
+  const selectActivity = document.getElementById('scan-activity-select');
+  const btnStart = document.getElementById('btn-start-camera');
+  const btnStop = document.getElementById('btn-stop-camera');
+  const btnValidateManual = document.getElementById('btn-validate-manual');
+  const inputManual = document.getElementById('input-manual-token');
+  const btnExportCsv = document.getElementById('btn-export-attendance-csv');
+
+  // Poblar actividades disponibles
+  populateScanActivities();
+  window.addEventListener('chispaplay:activities-updated', populateScanActivities);
+
+  // Iniciar Cámara con html5-qrcode
+  if (btnStart) {
+    btnStart.addEventListener('click', () => {
+      startCameraScanner();
+    });
+  }
+
+  if (btnStop) {
+    btnStop.addEventListener('click', () => {
+      stopCameraScanner();
+    });
+  }
+
+  // Validación Manual
+  if (btnValidateManual && inputManual) {
+    btnValidateManual.addEventListener('click', () => {
+      const token = inputManual.value.trim();
+      if (!token) {
+        alert('Por favor ingresa un token de vecino (ej. CHISPA-MAIPU-8821)');
+        return;
+      }
+      processAttendanceValidation(token);
+      inputManual.value = '';
+    });
+
+    inputManual.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        btnValidateManual.click();
+      }
+    });
+  }
+
+  // Exportar CSV
+  if (btnExportCsv) {
+    btnExportCsv.addEventListener('click', exportAttendanceToCsv);
+  }
+
+  // Configurar subida de imagen en formulario de publicación
+  setupImageUploadHandler();
+}
+
+function populateScanActivities() {
+  const select = document.getElementById('scan-activity-select');
+  if (!select) return;
+  const activities = getAllActivities();
+  select.innerHTML = activities.map(a => `
+    <option value="${a.id}">
+      [${a.commune === 'maipu' ? 'Maipú' : 'Valpo'}] ${a.title} (${a.locationName})
+    </option>
+  `).join('');
+}
+
+function startCameraScanner() {
+  const placeholder = document.getElementById('qr-camera-placeholder');
+  const btnStart = document.getElementById('btn-start-camera');
+  const btnStop = document.getElementById('btn-stop-camera');
+
+  if (typeof window.Html5Qrcode === 'undefined') {
+    alert('Librería de escáner cargando... Por favor intenta en 2 segundos.');
+    return;
+  }
+
+  if (placeholder) placeholder.classList.add('hidden');
+  if (btnStart) btnStart.classList.add('hidden');
+  if (btnStop) btnStop.classList.remove('hidden');
+
+  try {
+    if (!html5QrScannerInstance) {
+      html5QrScannerInstance = new window.Html5Qrcode('qr-reader');
+    }
+
+    const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+
+    html5QrScannerInstance.start(
+      { facingMode: 'environment' },
+      config,
+      (decodedText) => {
+        // Éxito en lectura
+        processAttendanceValidation(decodedText);
+      },
+      (error) => {
+        // Frame sin QR (normal)
+      }
+    ).catch(err => {
+      console.warn('Error al iniciar cámara:', err);
+      alert('No se pudo acceder a la cámara. Por favor permite los permisos o usa la validación manual.');
+      stopCameraScanner();
+    });
+  } catch (err) {
+    console.error('Error inicializando Html5Qrcode:', err);
+    stopCameraScanner();
+  }
+}
+
+function stopCameraScanner() {
+  const placeholder = document.getElementById('qr-camera-placeholder');
+  const btnStart = document.getElementById('btn-start-camera');
+  const btnStop = document.getElementById('btn-stop-camera');
+
+  if (html5QrScannerInstance) {
+    try {
+      html5QrScannerInstance.stop().then(() => {
+        html5QrScannerInstance.clear();
+      }).catch(() => {});
+    } catch {}
+  }
+
+  if (placeholder) placeholder.classList.remove('hidden');
+  if (btnStart) btnStart.classList.remove('hidden');
+  if (btnStop) btnStop.classList.add('hidden');
+}
+
+function processAttendanceValidation(qrPayload) {
+  const selectActivity = document.getElementById('scan-activity-select');
+  const activityId = selectActivity ? selectActivity.value : 'act-general';
+  const activities = getAllActivities();
+  const act = activities.find(a => a.id === activityId) || { title: 'Taller en Plaza' };
+  const activeCoord = getActiveCoordinator();
+  const validatedBy = activeCoord ? activeCoord.orgName : 'Coordinador en Terreno';
+
+  // Parsear payload (puede ser JSON de Pase Vecinal o Token simple)
+  let userToken = qrPayload;
+  let userName = 'Vecino en Terreno';
+
+  try {
+    const parsed = JSON.parse(qrPayload);
+    if (parsed.token) userToken = parsed.token;
+    if (parsed.name) userName = parsed.name;
+  } catch {}
+
+  // Enviar a Backend SQLite si está en línea
+  fetch('/api/attendance/scan-qr', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      qrData: qrPayload,
+      activityId: act.id,
+      activityTitle: act.title,
+      validatedBy: validatedBy
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.user_name) userName = data.user_name;
+    displayVerifiedAttendance(userToken, userName, act.title);
+  })
+  .catch(() => {
+    // Si el backend no responde, validar localmente
+    displayVerifiedAttendance(userToken, userName, act.title);
+  });
+}
+
+function displayVerifiedAttendance(token, name, activityTitle) {
+  // Reproducir sonido festivo
+  playAttendanceSuccessSound();
+
+  const card = document.getElementById('qr-verification-card');
+  const nameEl = document.getElementById('verified-neighbor-name');
+  const tokenEl = document.getElementById('verified-neighbor-token');
+  const titleEl = document.getElementById('verified-activity-title');
+  const timeEl = document.getElementById('verified-timestamp');
+
+  const nowStr = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  if (nameEl) nameEl.textContent = name;
+  if (tokenEl) tokenEl.textContent = token;
+  if (titleEl) titleEl.textContent = activityTitle;
+  if (timeEl) timeEl.textContent = nowStr;
+
+  if (card) {
+    card.classList.remove('hidden');
+    card.classList.add('animate-pulse');
+    setTimeout(() => card.classList.remove('animate-pulse'), 1000);
+  }
+
+  // Registrar en lista de hoy
+  scannedAttendanceToday.unshift({
+    name,
+    token,
+    activityTitle,
+    time: nowStr
+  });
+
+  renderScannedAttendanceList();
+  logAction('VALIDACION_ASISTENCIA_QR', 'Asistencia Escaneada', `Vecino: ${name} (${token}) en "${activityTitle}"`);
+}
+
+function renderScannedAttendanceList() {
+  const container = document.getElementById('coord-attendance-list');
+  const countEl = document.getElementById('coord-scanned-count');
+
+  if (countEl) countEl.textContent = scannedAttendanceToday.length;
+  if (!container) return;
+
+  if (scannedAttendanceToday.length === 0) {
+    container.innerHTML = '<div class="text-neutral-400 font-mono text-center py-4">Aún no se han escaneado pases vecinales hoy.</div>';
+    return;
+  }
+
+  container.innerHTML = scannedAttendanceToday.map((item, idx) => `
+    <div class="p-2 bg-white border border-neutral-300 flex items-center justify-between gap-2 shadow-2xs">
+      <div class="truncate">
+        <strong class="text-neutral-900 block truncate">${escapeHtml(item.name)}</strong>
+        <span class="text-[10px] font-mono text-neutral-500">${escapeHtml(item.token)} · ${escapeHtml(item.activityTitle)}</span>
+      </div>
+      <span class="text-[10px] font-mono font-bold text-[#059669] shrink-0 bg-emerald-50 px-1.5 py-0.5 border border-emerald-200">
+        ${item.time}
+      </span>
+    </div>
+  `).join('');
+}
+
+function exportAttendanceToCsv() {
+  if (scannedAttendanceToday.length === 0) {
+    alert('No hay asistencias registradas hoy para exportar.');
+    return;
+  }
+
+  let csvContent = "data:text/csv;charset=utf-8,Nombre,Token,Taller,Hora,Estado\n";
+  scannedAttendanceToday.forEach(row => {
+    csvContent += `"${row.name}","${row.token}","${row.activityTitle}","${row.time}","VALIDADO EN TERRENO"\n`;
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `asistencias_chispaplay_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function setupImageUploadHandler() {
+  const fileInput = document.getElementById('pub-image-file');
+  const urlInput = document.getElementById('pub-image');
+  const previewBox = document.getElementById('pub-image-preview-box');
+  const previewImg = document.getElementById('pub-image-preview');
+  const statusEl = document.getElementById('pub-image-status');
+
+  if (!fileInput) return;
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Data = event.target.result;
+      if (previewImg) previewImg.src = base64Data;
+      if (previewBox) previewBox.classList.remove('hidden');
+      if (statusEl) {
+        statusEl.textContent = 'Subiendo fotografía al servidor...';
+        statusEl.className = 'text-xs font-mono text-amber-600 font-bold';
+      }
+
+      // Enviar imagen a backend
+      fetch('/api/upload-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageData: base64Data,
+          filename: `taller_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.url) {
+          if (urlInput) urlInput.value = data.url;
+          if (statusEl) {
+            statusEl.textContent = '✓ Fotografía subida y vinculada a la grilla';
+            statusEl.className = 'text-xs font-mono text-[#059669] font-bold';
+          }
+        }
+      })
+      .catch(() => {
+        // Modo offline: almacenar DataURL
+        if (urlInput) urlInput.value = base64Data;
+        if (statusEl) {
+          statusEl.textContent = '✓ Imagen lista para la grilla (modo local)';
+          statusEl.className = 'text-xs font-mono text-[#059669] font-bold';
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}

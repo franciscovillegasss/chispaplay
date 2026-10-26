@@ -155,6 +155,20 @@ export function registerUser(name, contact, contactType = 'whatsapp') {
   localStorage.setItem(KEY_USER, JSON.stringify(user));
   recordTelemetryEvent('USER_REGISTERED', { token, name: user.name, contact: user.contact });
   logAction('REGISTRO_USUARIO', 'Pase Vecinal Asignado', `Vecino ${user.name} (${user.contact}) · Token: ${token}`);
+  
+  // Sincronizar de forma asíncrona con el backend SQLite si está disponible
+  try {
+    fetch('/api/users/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: user.name,
+        contact: user.contact,
+        commune: user.commune.toLowerCase().includes('valp') ? 'valparaiso' : 'maipu'
+      })
+    }).catch(() => {/* Offline fallback silencioso */});
+  } catch {}
+
   window.dispatchEvent(new CustomEvent('chispaplay:user-registered', { detail: { user } }));
   return user;
 }
@@ -437,23 +451,96 @@ export function validateGroundAttendanceWithGps(activityId, maybeCoords, maybeCa
 }
 
 // ==========================================================================
-// 5. CÁLCULO PEATONAL (REGLA DE LOS 15 MINUTOS · 80 M/MIN)
+// 5. CÁLCULO PEATONAL & GEOLOCALIZACIÓN GPS EN TIEMPO REAL
 // ==========================================================================
-export function calculateDistanceAndWalkingTime(itemCoords, customRef = null) {
-  const ref = customRef || getActiveReferencePoint();
-  if (!ref || !ref.coordinates || !itemCoords) {
-    return { meters: 450, minutes: 6, label: 'A 6 min de tu ubicación (450m)' };
+let liveUserGpsCoordinates = null;
+let liveGpsWatchId = null;
+
+/**
+ * Activa la geolocalización en tiempo real vía GPS del navegador
+ */
+export function startRealTimeGps(onSuccess, onError) {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    if (onError) onError('Tu navegador o dispositivo no soporta geolocalización GPS.');
+    return;
   }
 
-  const dLat = (itemCoords.lat - ref.coordinates.lat) * 111139;
-  const dLng = (itemCoords.lng - ref.coordinates.lng) * 111139 * Math.cos((ref.coordinates.lat * Math.PI) / 180);
-  const meters = Math.max(160, Math.round(Math.sqrt(dLat * dLat + dLng * dLng)));
-  const minutes = Math.max(2, Math.round(meters / 80));
+  if (liveGpsWatchId !== null) {
+    navigator.geolocation.clearWatch(liveGpsWatchId);
+  }
+
+  liveGpsWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      liveUserGpsCoordinates = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        timestamp: pos.timestamp
+      };
+      localStorage.setItem('chispaplay_live_gps', JSON.stringify(liveUserGpsCoordinates));
+      window.dispatchEvent(new CustomEvent('chispaplay:gps-updated', { detail: liveUserGpsCoordinates }));
+      if (onSuccess) onSuccess(liveUserGpsCoordinates);
+    },
+    (err) => {
+      console.warn('Aviso de GPS:', err.message);
+      if (onError) onError(err);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
+  );
+}
+
+export function stopRealTimeGps() {
+  if (liveGpsWatchId !== null && typeof navigator !== 'undefined') {
+    navigator.geolocation.clearWatch(liveGpsWatchId);
+    liveGpsWatchId = null;
+  }
+}
+
+export function getRealTimeGps() {
+  if (liveUserGpsCoordinates) return liveUserGpsCoordinates;
+  try {
+    const raw = localStorage.getItem('chispaplay_live_gps');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+export function calculateDistanceAndWalkingTime(itemCoords, customRef = null) {
+  const ref = customRef || getActiveReferencePoint();
+  const userGps = getRealTimeGps();
+
+  if (!itemCoords || (!userGps && (!ref || !ref.coordinates))) {
+    return { meters: 450, minutes: 6, label: 'A 6 min a pie (450m)' };
+  }
+
+  // Si hay GPS en tiempo real activo, calcula desde la posición del usuario
+  const baseLat = userGps ? userGps.lat : ref.coordinates.lat;
+  const baseLng = userGps ? userGps.lng : ref.coordinates.lng;
+
+  // Fórmula de Haversine para distancias geodésicas verídicas
+  const R = 6371e3; // Radio terrestre en metros
+  const phi1 = (baseLat * Math.PI) / 180;
+  const phi2 = (itemCoords.lat * Math.PI) / 180;
+  const deltaPhi = ((itemCoords.lat - baseLat) * Math.PI) / 180;
+  const deltaLambda = ((itemCoords.lng - baseLng) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const meters = Math.max(50, Math.round(R * c));
+  const minutes = Math.max(1, Math.round(meters / 83)); // 83 metros por minuto = 5 km/h
+
+  const isLive = !!userGps;
+  const formattedDistance = meters < 1000 ? `${meters}m` : `${(meters / 1000).toFixed(1)} km`;
 
   return {
     meters,
     minutes,
-    label: `A ${minutes} min de tu ubicación (${meters}m)`
+    isLiveGps: isLive,
+    label: isLive
+      ? `🛰️ A ${minutes} min en tiempo real (${formattedDistance})`
+      : `A ${minutes} min a pie (${formattedDistance})`
   };
 }
 
@@ -527,6 +614,39 @@ export function addCustomActivity(activityData) {
     custom.unshift(newActivity);
     localStorage.setItem(KEY_CUSTOM_ACTIVITIES, JSON.stringify(custom));
     logAction('PUBLICAR_ACTIVIDAD', 'Nueva Actividad Publicada', `"${newActivity.title}" en ${newActivity.locationName}`);
+    
+    // Sincronizar con backend SQLite
+    try {
+      fetch('/api/activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: newActivity.id,
+          commune: newActivity.commune,
+          sectorId: newActivity.sectorId,
+          title: newActivity.title,
+          journalisticSubtitle: newActivity.journalisticSubtitle,
+          category: newActivity.category,
+          categoryTag: newActivity.categoryTag,
+          timeframe: newActivity.timeframe,
+          dateLabel: newActivity.dateLabel,
+          locationName: newActivity.locationName,
+          address: newActivity.address,
+          lat: newActivity.coordinates.lat,
+          lng: newActivity.coordinates.lng,
+          imageUrl: newActivity.imageUrl,
+          capacity: newActivity.capacity,
+          instructorName: newActivity.instructorName,
+          instructorRole: newActivity.instructorRole,
+          instructorWhatsapp: newActivity.instructorWhatsapp,
+          editorialVerdict: newActivity.editorialVerdict,
+          whatToBring: newActivity.whatToBring,
+          communityNotice: newActivity.communityNotice,
+          schedule: newActivity.schedule,
+          amenities: newActivity.amenities
+        })
+      }).catch(() => {});
+    } catch {}
     window.dispatchEvent(new CustomEvent('chispaplay:activities-updated', { detail: { newActivity } }));
     return newActivity;
   } catch (err) {
@@ -894,6 +1014,20 @@ export function reportParkDefect(activityId, issueType, details) {
 
     reports.unshift(report);
     localStorage.setItem(KEY_PARK_REPORTS, JSON.stringify(reports));
+
+    // Sincronizar reporte con backend municipal SQLite
+    try {
+      fetch('/api/defects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activityId,
+          locationName: report.locationName,
+          defectType: issueType,
+          detail: details
+        })
+      }).catch(() => {});
+    } catch {}
     recordTelemetryEvent('security_issue_reported', {
       id: activityId,
       activityId,

@@ -26,7 +26,8 @@ import {
   hasValidUserContact,
   subscribeRadarWhatsApp,
   reportParkDefect,
-  logAction
+  logAction,
+  startRealTimeGps
 } from './state.js';
 import { getGoogleCalendarUrl, downloadIcsFile, getGoogleMapsDirectionsUrl } from './calendar.js';
 import { renderNavbar } from './navbar.js';
@@ -220,6 +221,14 @@ function revealStep2() {
     `
       <button 
         type="button" 
+        data-sector-id="gps-live"
+        class="btn-sector-choice p-2.5 border-2 border-emerald-600 bg-emerald-50 text-emerald-950 hover:bg-emerald-600 hover:text-white text-xs font-black text-center cursor-pointer flex items-center justify-center gap-1.5 col-span-2 sm:col-span-3 transition-colors shadow-sm"
+      >
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>🛰️ Usar mi Ubicación Exacta (GPS en Tiempo Real)</span>
+      </button>
+      <button 
+        type="button" 
         data-sector-id="center"
         class="btn-sector-choice p-2.5 border-2 border-dashed border-neutral-400 hover:border-black text-xs font-bold text-center bg-white text-neutral-700 cursor-pointer"
       >
@@ -241,6 +250,33 @@ function revealStep2() {
 }
 
 function handleSectorSelect(sectorId, communeObj) {
+  if (sectorId === 'gps-live') {
+    const btn = document.querySelector('[data-sector-id="gps-live"]');
+    if (btn) btn.innerHTML = '<span>🛰️ Obteniendo GPS satelital...</span>';
+    startRealTimeGps(
+      (pos) => {
+        const gpsRef = {
+          id: 'gps-live',
+          name: 'Mi Ubicación GPS en Vivo',
+          coords: [pos.coords.latitude, pos.coords.longitude]
+        };
+        selectedSector = gpsRef;
+        forceShowAllDistances = false;
+        setActiveReferencePoint(gpsRef);
+        logAction('SELECCION_SECTOR', 'GPS en Tiempo Real', `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+        const radarSectorDisplay = document.getElementById('radar-sector-name');
+        if (radarSectorDisplay) radarSectorDisplay.textContent = 'Tu Ubicación GPS';
+        renderStep3Timeframe(gpsRef);
+        renderActivitiesSection();
+      },
+      (err) => {
+        alert('No se pudo obtener tu ubicación GPS: ' + (err.message || 'Permiso denegado'));
+        if (btn) btn.innerHTML = '<span>🛰️ Usar mi Ubicación Exacta (GPS en Tiempo Real)</span>';
+      }
+    );
+    return;
+  }
+
   let targetRef = null;
   if (sectorId === 'center') {
     targetRef = communeObj.centerReference;
