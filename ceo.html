@@ -7,7 +7,18 @@
     <title>ChispaPlay - Panel de Inteligencia B2G & Métricas CEO</title>
     <meta name="description" content="Panel ejecutivo de análisis de demanda vecinal, conversión de talleres y reportes territoriales B2G." />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23E11D48'/%3E%3Ctext x='50' y='65' font-family='monospace' font-size='50' font-weight='900' fill='white' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="/css/global.css" />
+    <script type="importmap">
+    {
+      "imports": {
+        "leaflet": "https://esm.sh/leaflet@1.9.4",
+        "qrcode": "https://esm.sh/qrcode@1.5.4",
+        "d3": "https://esm.sh/d3@7.9.0"
+      }
+    }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="./css/global.css" />
   </head>
   <body class="bg-[#F8F8F6] text-[#111111] antialiased font-sans">
     
@@ -221,6 +232,6 @@
     </div>
 
     <!-- Scripts Modulares -->
-    <script type="module" src="/js/ceo.js"></script>
+    <script type="module" src="./js/ceo.js"></script>
   </body>
 </html>
