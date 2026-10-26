@@ -1,0 +1,3 @@
+# ChispaPlay Backend Dependencies
+# Built-in Python 3 Standard Library (http.server, sqlite3, json, hashlib, mimetypes)
+# No external package installations required for lightweight zero-maintenance execution

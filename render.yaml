@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: chispaplay
+    runtime: python
+    buildCommand: ""
+    startCommand: python server.py
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: CHISPA_CEO_KEY
+        value: CHISPA-CEO-2026
