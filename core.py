@@ -2,6 +2,7 @@
 
 import os
 import re
+import secrets
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -48,9 +49,21 @@ def init_db():
             db.execute("ALTER TABLE neighbors ADD COLUMN password_hash TEXT")
         event_columns = {column["name"] for column in db.execute("PRAGMA table_info(events)")}
         for name, definition in (("wheelchair", "INTEGER NOT NULL DEFAULT 0"), ("sensory", "INTEGER NOT NULL DEFAULT 0"),
-                                 ("latitude", "REAL"), ("longitude", "REAL")):
+                                 ("latitude", "REAL"), ("longitude", "REAL"), ("why_go", "TEXT NOT NULL DEFAULT ''"),
+                                 ("schedule_json", "TEXT NOT NULL DEFAULT '[]'")):
             if name not in event_columns:
                 db.execute(f"ALTER TABLE events ADD COLUMN {name} {definition}")
+        staff_columns = {column["name"] for column in db.execute("PRAGMA table_info(staff)")}
+        if "phone" not in staff_columns:
+            db.execute("ALTER TABLE staff ADD COLUMN phone TEXT")
+        db.execute("UPDATE neighbors SET tracking=1 WHERE tracking!=1")
+        for neighbor in db.execute("SELECT id FROM neighbors WHERE length(personal_code)!=5 OR personal_code GLOB '*[^0-9]*'").fetchall():
+            db.execute("UPDATE neighbors SET personal_code=? WHERE id=?", (personal_code(db), neighbor["id"]))
+        ceos = db.execute("SELECT id FROM staff WHERE role='ceo' AND active=1 ORDER BY created,id").fetchall()
+        for duplicate in ceos[1:]:
+            db.execute("UPDATE staff SET active=0 WHERE id=?", (duplicate["id"],))
+            db.execute("DELETE FROM sessions WHERE actor_id=?", (duplicate["id"],))
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS single_active_ceo ON staff(role) WHERE role='ceo' AND active=1")
 
 
 def field(body, key, label, maximum=150, minimum=1):
@@ -90,3 +103,13 @@ def prune():
         db.execute("DELETE FROM rate_limits WHERE created<?", (current - 3600,))
         db.execute("DELETE FROM sessions WHERE expires<=?", (current,))
         db.execute("DELETE FROM traffic WHERE created<?", (current - TRAFFIC_DAYS * 86400,))
+
+
+def personal_code(db):
+    if db.execute("SELECT COUNT(*) FROM neighbors").fetchone()[0] >= 90000:
+        raise APIError(409, "Se alcanzó el límite de códigos personales disponibles.")
+    for _ in range(100):
+        code = str(10000 + secrets.randbelow(90000))
+        if not db.execute("SELECT 1 FROM neighbors WHERE personal_code=?", (code,)).fetchone():
+            return code
+    raise APIError(503, "No se pudo asignar un código. Intenta nuevamente.")

@@ -2,11 +2,13 @@
 
 import base64
 import binascii
+import json
 import re
 import secrets
 from datetime import datetime
 
 from core import APIError, audit, field, now
+from geography import COMMUNES, COMMUNE_NAMES, key
 
 MAX_IMAGE = 3 * 1024 * 1024
 IMAGES = {"image/jpeg": b"\xff\xd8\xff", "image/png": b"\x89PNG\r\n\x1a\n", "image/webp": b"RIFF"}
@@ -36,6 +38,7 @@ def event_row(db, event_id):
 
 def result(row, public=True):
     data = dict(row)
+    data["schedule"] = json.loads(data.pop("schedule_json"))
     data["available"] = max(0, data["capacity"] - data["booked"])
     data["photo"] = f"/api/events/{data['id']}/photo" if data.pop("has_photo") and row["status"] == "published" else None
     if public:
@@ -50,7 +53,9 @@ def catalog(db, owner=None, all_events=False):
     elif owner:
         where, values = " WHERE e.owner_id=?", (owner,)
     else:
-        where, values = " WHERE e.status='published' AND e.ends>?", (now(),)
+        placeholders = ",".join("?" for _ in COMMUNES)
+        where = f" WHERE e.status='published' AND e.ends>? AND e.commune IN ({placeholders})"
+        values = (now(), *COMMUNES)
     order = "DESC" if owner or all_events else "ASC"
     rows = db.execute(CATALOG + where + f" GROUP BY e.id ORDER BY e.starts {order}, e.id", values)
     return [result(row, public=not (owner or all_events)) for row in rows]
@@ -91,6 +96,21 @@ def photo_data(value):
 
 def save(db, actor, body, event=None):
     data = {key: field(body, key, label, limit) for key, label, limit in EVENT_FIELDS}
+    if key(data["commune"]) not in COMMUNE_NAMES:
+        raise APIError(400, "Selecciona una comuna de la Región Metropolitana.")
+    data["commune"] = COMMUNE_NAMES[key(data["commune"])]
+    why = body.get("why_go", "")
+    if not isinstance(why, str) or len(why) > 240:
+        raise APIError(400, "El resumen debe tener hasta 240 caracteres.")
+    schedule = body.get("schedule", [])
+    if not isinstance(schedule, list) or len(schedule) > 12:
+        raise APIError(400, "Revisa el cronograma.")
+    cleaned = [{"time": field(item, "time", "la hora del cronograma", 30),
+                "activity": field(item, "activity", "la actividad del cronograma", 180)}
+               for item in schedule if isinstance(item, dict)]
+    if len(cleaned) != len(schedule):
+        raise APIError(400, "Revisa el cronograma.")
+    data.update(why_go=why.strip(), schedule_json=json.dumps(cleaned, ensure_ascii=False))
     capacity = body.get("capacity")
     if type(capacity) is not int or not 1 <= capacity <= 500:
         raise APIError(400, "Indica entre 1 y 500 cupos.")
@@ -182,7 +202,7 @@ def reserve(db, actor, event, cancel_reservation=False):
 
 def attendance(db, actor, event, body):
     code = field(body, "personal_code", "el código personal", 20).upper()
-    if not re.fullmatch(r"CP-[A-F0-9]{12}", code):
+    if not re.fullmatch(r"[0-9]{5}", code):
         raise APIError(400, "Revisa el código personal del vecino.")
     row = db.execute("""SELECT n.id,n.name,b.status,b.attended_at FROM bookings b
         JOIN neighbors n ON n.id=b.neighbor_id

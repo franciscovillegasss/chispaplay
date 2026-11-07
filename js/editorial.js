@@ -1,39 +1,13 @@
-const COMMUNES_DATA = {
-  maipu: {
-    id: 'maipu',
-    name: 'Maipú',
-    region: 'Santiago Poniente · RM',
-    centerReference: {
-      id: 'ref-mai-metro',
-      name: 'Metro Plaza de Maipú',
-      coordinates: { lat: -33.5112, lng: -70.7578 }
-    },
-    suggestions: [
-      { id: 'ref-mai-metro', name: 'Metro Plaza de Maipú', coordinates: { lat: -33.5112, lng: -70.7578 } },
-      { id: 'ref-mai-longitudinal', name: 'Barrio Longitudinal', coordinates: { lat: -33.4980, lng: -70.7420 } },
-      { id: 'ref-mai-satelite', name: 'Ciudad Satélite', coordinates: { lat: -33.5420, lng: -70.7920 } },
-      { id: 'ref-mai-tresponiente', name: 'Pajaritos / Parque Tres Poniente', coordinates: { lat: -33.5220, lng: -70.7710 } },
-      { id: 'ref-mai-abrazo', name: 'El Abrazo', coordinates: { lat: -33.5350, lng: -70.7780 } }
-    ]
-  },
-  valparaiso: {
-    id: 'valparaiso',
-    name: 'Valparaíso',
-    region: 'Costa Central · V Región',
-    centerReference: {
-      id: 'ref-val-victoria',
-      name: 'Plaza Victoria',
-      coordinates: { lat: -33.0470, lng: -71.6190 }
-    },
-    suggestions: [
-      { id: 'ref-val-alegre', name: 'Cerro Alegre', coordinates: { lat: -33.0425, lng: -71.6289 } },
-      { id: 'ref-val-victoria', name: 'Plaza Victoria', coordinates: { lat: -33.0470, lng: -71.6190 } },
-      { id: 'ref-val-baron', name: 'Cerro Barón', coordinates: { lat: -33.0390, lng: -71.5990 } },
-      { id: 'ref-val-playaancha', name: 'Playa Ancha', coordinates: { lat: -33.0310, lng: -71.6420 } },
-      { id: 'ref-val-polanco', name: 'Cerro Polanco', coordinates: { lat: -33.0490, lng: -71.6080 } }
-    ]
-  }
-};
+let COMMUNES_DATA = {};
+
+export function configureGeography(communes, events = []) {
+  COMMUNES_DATA = Object.fromEntries(communes.map(name => {
+    const id = normalize(name);
+    const sectors = [...new Set(events.filter(event => normalize(event.commune) === id).map(event => event.sector))];
+    return [id, { id, name, centerReference: { id: 'all', name: 'Todos los sectores' },
+      suggestions: [{ id: 'all', name: 'Todos los sectores' }, ...sectors.map((sector, index) => ({ id: String(index), name: sector }))] }];
+  }));
+}
 
 export function renderNavigation(page, actor) {
   const activePageKey = { home: 'inicio', catalog: 'actividades', event: 'actividades', profile: 'perfil' }[page];
@@ -101,7 +75,7 @@ export function renderNavigation(page, actor) {
               title="Cambiar sector de referencia (15 minutos)"
             >
               <span class="text-[#E11D48]">📍</span>
-              <span class="max-w-[110px] sm:max-w-[150px] truncate text-neutral-900 group-hover:text-white font-bold">${currentRef.name}</span>
+              <span class="max-w-[110px] sm:max-w-[150px] truncate text-neutral-900 group-hover:text-white font-bold">${escapeHtml(currentRef.name)}</span>
               <span class="text-[9px] text-neutral-500 font-normal">▼</span>
             </button>
 
@@ -111,7 +85,7 @@ export function renderNavigation(page, actor) {
               class="hidden absolute right-0 mt-2 w-72 bg-white border-3 border-black shadow-[6px_6px_0px_0px_#111111] z-50 animate-fade-soft py-2 font-sans"
             >
               <div class="px-3.5 py-1.5 text-[10px] font-mono uppercase text-neutral-500 font-bold border-b border-neutral-200 flex items-center justify-between">
-                <span>SECTORES ${currentCommune.name.toUpperCase()} (15 MIN)</span>
+                <span>SECTORES ${escapeHtml(currentCommune.name.toUpperCase())} (15 MIN)</span>
                 <span class="text-[#059669]">● ACTIVO</span>
               </div>
 
@@ -130,7 +104,7 @@ export function renderNavigation(page, actor) {
                             : 'text-neutral-800 hover:bg-neutral-100 hover:text-[#E11D48]'
                         }"
                       >
-                        <span class="truncate">📍 ${s.name}</span>
+                        <span class="truncate">📍 ${escapeHtml(s.name)}</span>
                         ${isSelected ? `<span class="text-[10px] font-mono text-[#059669]">✓</span>` : ''}
                       </button>
                     `;
@@ -145,7 +119,7 @@ export function renderNavigation(page, actor) {
                   id="btn-quick-switch-commune"
                   class="w-full text-left py-1.5 text-[11px] font-mono font-bold text-neutral-600 hover:text-black flex items-center justify-between cursor-pointer"
                 >
-                  <span>Cambiar a ${currentCommuneKey === 'maipu' ? 'Valparaíso' : 'Maipú'} →</span>
+                  <span>Cambiar a otra comuna →</span>
                   <span class="text-[10px] bg-neutral-200 px-1.5 py-0.5 uppercase">Switch</span>
                 </button>
               </div>
@@ -197,7 +171,7 @@ export function renderNavigation(page, actor) {
                 class="w-full text-left px-4 py-2 text-xs font-bold text-neutral-900 hover:bg-neutral-100 hover:text-[#E11D48] cursor-pointer flex items-center justify-between md:hidden"
               >
                 <span>📍 Cambiar Sector</span>
-                <span class="text-[10px] font-mono text-[#E11D48] font-bold truncate max-w-[110px]">${currentRef.name}</span>
+                <span class="text-[10px] font-mono text-[#E11D48] font-bold truncate max-w-[110px]">${escapeHtml(currentRef.name)}</span>
               </button>
               <a
                 href="index.html"
@@ -242,9 +216,6 @@ export function renderNavigation(page, actor) {
               >
                 <span>🏛️ Coordinadores (JJVV)</span>
                 <span class="text-[10px] font-mono text-neutral-500">Gestión</span>
-              </a>
-              <a href="ceo.html" class="block px-4 py-2 text-xs font-bold text-neutral-900 hover:bg-neutral-100 hover:text-[#E11D48] flex items-center justify-between">
-                <span>Panel CEO</span><span class="text-[10px] font-mono text-neutral-500">Auditoría</span>
               </a>
 
               <div class="border-t border-neutral-200 my-1 pt-1"></div>
@@ -355,7 +326,10 @@ function renderBottomNav(activeTab) {
 }
 
 const params = new URLSearchParams(location.search);
-const getActiveCommune = () => (params.get('commune') || localStorage.getItem('chispaplay_active_commune')) === 'valparaiso' ? 'valparaiso' : 'maipu';
+const getActiveCommune = () => {
+  const value = normalize(params.get('commune') || localStorage.getItem('chispaplay_active_commune') || 'Santiago');
+  return COMMUNES_DATA[value] ? value : 'santiago';
+};
 const normalize = value => String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const catalogUrl = (commune, sector = '') => 'actividades.html?' + new URLSearchParams({ commune, sector });
 const localDay = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Santiago' });
@@ -390,10 +364,10 @@ function bindNavbarEvents(container, commune) {
   }
   container.querySelectorAll('[data-quick-ref-id]').forEach(button => button.addEventListener('click', () => {
     const sector = commune.suggestions.find(item => item.id === button.dataset.quickRefId);
-    location.href = catalogUrl(commune.id, sector.name);
+    location.href = catalogUrl(commune.id, sector.id === 'all' ? '' : sector.name);
   }));
   select('btn-quick-switch-commune').addEventListener('click', () => {
-    location.href = catalogUrl(commune.id === 'maipu' ? 'valparaiso' : 'maipu');
+    location.href = 'index.html#hero-interactive-canvas';
   });
   select('menu-btn-mobile-location').addEventListener('click', () => { location.href = 'index.html#hero-interactive-canvas'; });
   for (const id of ['nav-btn-register', 'nav-btn-user-pass-card']) {
@@ -458,40 +432,39 @@ function cards(events, poster, position) {
 
 function renderHome(events, track) {
   let commune, sector;
+  const selector = document.getElementById('home-commune');
   const sectorBox = document.getElementById('hero-step2-container');
   const sectorGrid = document.getElementById('step2-sectors-grid');
   const timeframeBox = document.getElementById('hero-step3-container');
   const ranking = document.getElementById('ranking-section');
   const inCommune = event => normalize(event.commune) === commune;
-  document.querySelectorAll('.btn-commune-choice').forEach(button => {
-    button.addEventListener('click', () => {
-      commune = button.dataset.commune;
-      sector = '';
-      localStorage.setItem('chispaplay_active_commune', commune);
-      localStorage.removeItem('chispaplay_editorial_sector');
-      document.querySelectorAll('.btn-commune-choice').forEach(choice => choice.setAttribute('aria-pressed', String(choice === button)));
-      document.getElementById('step2-commune-label').textContent = COMMUNES_DATA[commune].name;
-      const labels = new Set(['', ...COMMUNES_DATA[commune].suggestions.map(item => item.name),
-        ...events.filter(inCommune).map(event => event.sector)]);
-      sectorGrid.replaceChildren();
-      for (const name of labels) {
-        const choice = document.createElement('button');
-        choice.type = 'button';
-        choice.className = 'bg-neutral-50 border-2 border-black p-2 text-xs font-bold hover:bg-black hover:text-white';
-        choice.textContent = name || 'Todos los sectores';
-        choice.addEventListener('click', () => {
-          sector = name;
-          localStorage.setItem('chispaplay_editorial_sector', name);
-          document.getElementById('step3-ref-label').textContent = choice.textContent;
-          timeframeBox.classList.remove('hidden');
-          ranking.classList.add('hidden');
-        });
-        sectorGrid.append(choice);
-      }
-      sectorBox.classList.remove('hidden');
-      timeframeBox.classList.add('hidden');
-      ranking.classList.add('hidden');
-    });
+  for (const [id, data] of Object.entries(COMMUNES_DATA)) selector.add(new Option(data.name, id));
+  selector.addEventListener('change', () => {
+    commune = selector.value;
+    if (!commune) return;
+    sector = '';
+    localStorage.setItem('chispaplay_active_commune', commune);
+    localStorage.removeItem('chispaplay_editorial_sector');
+    document.getElementById('step2-commune-label').textContent = COMMUNES_DATA[commune].name;
+    const labels = new Set(['', ...events.filter(inCommune).map(event => event.sector)]);
+    sectorGrid.replaceChildren();
+    for (const name of labels) {
+      const choice = document.createElement('button');
+      choice.type = 'button';
+      choice.className = 'bg-neutral-50 border-2 border-black p-2 text-xs font-bold hover:bg-black hover:text-white';
+      choice.textContent = name || 'Todos los sectores';
+      choice.addEventListener('click', () => {
+        sector = name;
+        localStorage.setItem('chispaplay_editorial_sector', name);
+        document.getElementById('step3-ref-label').textContent = choice.textContent;
+        timeframeBox.classList.remove('hidden');
+        ranking.classList.add('hidden');
+      });
+      sectorGrid.append(choice);
+    }
+    sectorBox.classList.remove('hidden');
+    timeframeBox.classList.add('hidden');
+    ranking.classList.add('hidden');
   });
   document.querySelectorAll('.btn-step3-timeframe').forEach(button => {
     button.addEventListener('click', () => {
@@ -527,7 +500,9 @@ function renderDaily(events, track) {
   let category = 'todas';
   let isPoster = localStorage.getItem('chispaplay_editorial_view') !== 'diario';
   let timer;
-  commune.value = params.get('commune') || '';
+  for (const [id, data] of Object.entries(COMMUNES_DATA)) commune.add(new Option(data.name, id));
+  const initial = normalize(params.get('commune') || '');
+  commune.value = COMMUNES_DATA[initial] ? initial : '';
   search.value = params.get('sector') || '';
   function render() {
     const needle = normalize(search.value.trim());
@@ -537,7 +512,7 @@ function renderDaily(events, track) {
       (category === 'todas' || terms[category].some(word => normalize(event.category).includes(word))) &&
       normalize([event.title, event.venue, event.sector, event.organizer, event.category].join(' ')).includes(needle)
     );
-    document.getElementById('actividades-commune-badge').textContent = commune.value ? 'COMUNA: ' + COMMUNES_DATA[commune.value].name : 'MAIPÚ Y VALPARAÍSO';
+    document.getElementById('actividades-commune-badge').textContent = commune.value ? 'COMUNA: ' + COMMUNES_DATA[commune.value].name : 'REGIÓN METROPOLITANA';
     document.getElementById('actividades-count-display').textContent = items.length + ' actividades';
     clear.classList.toggle('hidden', !search.value);
     for (const [button, active] of [[poster, isPoster], [diary, !isPoster], ...categories.map(button => [button, button.dataset.cat === category])]) {

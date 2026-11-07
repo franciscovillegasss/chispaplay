@@ -1,4 +1,4 @@
-import { renderDiscovery, renderNavigation } from './editorial.js';
+import { configureGeography, renderDiscovery, renderNavigation } from './editorial.js';
 
 const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
@@ -15,6 +15,7 @@ const statusNames = {
   resolved: 'Resuelto'
 };
 let actor = null;
+let communes = [];
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -83,7 +84,7 @@ function onClick(id, action) {
 }
 
 function track(action, eventId) {
-  if (actor?.role === 'neighbor' && actor.tracking) {
+  if (actor?.role === 'neighbor') {
     api('/api/traffic', { action, event_id: eventId }, { keepalive: true }).catch(() => {});
   }
 }
@@ -133,12 +134,23 @@ async function renderEvent(id, logView = true) {
     <p class="text-xs font-mono font-bold text-neutral-700">📍 ${escapeHtml(event.venue)} · ${escapeHtml(date(event.starts))}</p>
     ${event.status === 'cancelled' ? '<p class="badge">Actividad cancelada</p>' : ''}
     ${event.photo ? '<img class="event-cover" src="' + escapeHtml(event.photo) + '" alt="">' : ''}
+    ${event.why_go ? '<section class="panel"><p class="eyebrow">Por qué ir</p><p>' + escapeHtml(event.why_go) + '</p></section>' : ''}
     <section class="panel"><p class="preline">${escapeHtml(event.description)}</p>
       <dl class="facts">${facts.map(([key, value]) => '<div><dt>' + key + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('')}</dl>
+      ${event.schedule.length ? '<h2>Cronograma</h2>' + table(['Hora', 'Actividad'], event.schedule.map(item => [
+        escapeHtml(item.time), escapeHtml(item.activity)
+      ]), '') : ''}
       <div class="actions">
+        <button id="save-calendar" class="secondary">Guardar evento en calendario</button>
+        <a class="button secondary" id="google-calendar" href="${escapeHtml(calendarLink(event))}" target="_blank" rel="noopener">Google Calendar</a>
         <a class="button secondary" href="${escapeHtml(map)}" id="directions" target="_blank" rel="noopener">Ver en el mapa</a>
         <a class="button secondary" href="${escapeHtml(share)}" id="share" target="_blank" rel="noopener">Compartir por WhatsApp</a>
       </div>
+    </section>
+    <section class="panel"><h2>Ubicación</h2>
+      <iframe class="location-map" title="Ubicación de ${escapeHtml(event.venue)} en Google Maps"
+        src="https://maps.google.com/maps?q=${encodeURIComponent(event.venue + ', ' + event.address + ', ' + event.commune + ', Chile')}&amp;output=embed"
+        loading="lazy" referrerpolicy="no-referrer" allowfullscreen></iframe>
     </section>
     </div><aside class="lg:col-span-4 lg:sticky lg:top-8">
     <section class="panel ticket-panel"><p class="eyebrow">Pase Vecinal</p><h2>Inscripción</h2>
@@ -159,6 +171,11 @@ async function renderEvent(id, logView = true) {
         <button type="submit">Enviar reporte</button></form></details>` : ''}
     </aside></div></div>
   `;
+  onClick('save-calendar', () => {
+    saveCalendar(event);
+    track('calendario_guardado', id);
+  });
+  document.getElementById('google-calendar').addEventListener('click', () => track('calendario_guardado', id));
   document.getElementById('share').addEventListener('click', () => track('enlace_compartido', id));
   document.getElementById('directions').addEventListener('click', () => track('mapa_abierto', id));
   onClick('reserve', async () => {
@@ -180,6 +197,49 @@ async function renderEvent(id, logView = true) {
   if (logView) track('ficha_abierta', id);
 }
 
+function compactDate(timestamp) {
+  return new Date(timestamp * 1000).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function calendarLink(event) {
+  return 'https://calendar.google.com/calendar/render?' + new URLSearchParams({
+    action: 'TEMPLATE', text: event.title, dates: compactDate(event.starts) + '/' + compactDate(event.ends),
+    location: event.venue + ', ' + event.address + ', ' + event.commune,
+    details: event.description + '\n' + new URL(eventUrl(event.id), location.origin).href
+  });
+}
+
+function saveCalendar(event) {
+  const text = value => String(value).replace(/\\/g, '\\\\').replace(/\n|\r\n?/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+  const lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ChispaPlay//Cartelera//ES', 'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT', 'UID:' + event.id + '@chispaplay', 'DTSTAMP:' + compactDate(Date.now() / 1000),
+    'DTSTART:' + compactDate(event.starts), 'DTEND:' + compactDate(event.ends), 'SUMMARY:' + text(event.title),
+    'DESCRIPTION:' + text(event.description), 'LOCATION:' + text(event.venue + ', ' + event.address + ', ' + event.commune),
+    'END:VEVENT', 'END:VCALENDAR'
+  ];
+  const encoder = new TextEncoder();
+  const folded = [];
+  for (const line of lines) {
+    let part = '';
+    for (const character of line) {
+      if (encoder.encode(part + character).length > 73) {
+        folded.push(part);
+        part = ' ';
+      }
+      part += character;
+    }
+    folded.push(part);
+  }
+  const blob = new Blob([folded.join('\r\n') + '\r\n'], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'actividad-chispaplay.ics';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function neighborLogin(register = true) {
   app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Credencial de barrio</p>
     <h1>Mi Pase Vecinal</h1><h2>${register ? 'Crea tu cuenta' : 'Entra a tu cuenta'}</h2>
@@ -189,11 +249,14 @@ function neighborLogin(register = true) {
       <label>Celular chileno <input name="phone" type="tel" autocomplete="tel" required maxlength="25" placeholder="+56 9 1234 5678"></label>
       <label>Contraseña <input name="password" type="password" autocomplete="${register ? 'new-password' : 'current-password'}" required ${register ? 'minlength="12"' : ''} maxlength="128"></label>
       ${register ? '<div hidden aria-hidden="true"><label>Sitio web <input name="website" autocomplete="off" tabindex="-1"></label></div>' : ''}
+      <p class="muted">ChispaPlay registra la navegación de las cuentas para medir el uso de la cartelera. El historial se conserva durante 90 días.</p>
       <button type="submit">${register ? 'Crear Pase Vecinal' : 'Iniciar sesión'}</button>
     </form>
     <button id="switch-auth" class="secondary">${register ? 'Ya tengo una cuenta' : 'Crear una cuenta'}</button>
+    <div class="actions"><button id="access-ceo" class="secondary">Acceso de administración</button></div>
   </section>`;
   onClick('switch-auth', () => neighborLogin(!register));
+  onClick('access-ceo', ceoLogin);
   onForm('neighbor-auth', async fields => {
     ({ actor } = await api('/api/neighbors/' + (register ? 'register' : 'login'), fields));
     renderNavigation(page, actor);
@@ -207,6 +270,17 @@ function neighborLogin(register = true) {
 }
 
 async function renderProfile() {
+  if (actor?.role === 'ceo') {
+    app.innerHTML = '<section class="panel narrow ticket-panel"><p class="eyebrow">Mi Pase · Administración</p><h1>' +
+      escapeHtml(actor.name) + '</h1><div class="actions"><a class="button" href="/ceo.html">Abrir panel CEO</a>' +
+      '<button id="logout" class="secondary">Cerrar sesión</button></div></section>';
+    signOut();
+    return;
+  }
+  if (query.get('access') === 'ceo') {
+    ceoLogin();
+    return;
+  }
   if (actor?.role !== 'neighbor') {
     neighborLogin();
     return;
@@ -218,7 +292,8 @@ async function renderProfile() {
       <p>${escapeHtml(actor.phone)}</p><p>Presenta este código cuando llegues a una actividad reservada.</p>
       <code class="code">${escapeHtml(actor.personal_code)}</code>
       <div class="actions"><button class="secondary" id="copy-code">Copiar código</button>
-        <button class="secondary" id="logout">Cerrar sesión</button></div>
+        <button class="secondary" id="logout">Cerrar sesión</button>
+        <button class="secondary" id="access-ceo">Acceso de administración</button></div>
     </section>
     <section class="panel"><h2>Mis actividades</h2>
       ${table(['Actividad', 'Horario', 'Estado'], data.bookings.map(item => [
@@ -232,35 +307,68 @@ async function renderProfile() {
         escapeHtml(item.id), escapeHtml(item.title), status(item.status)
       ]), 'Todavía no has enviado reportes.')}
     </section>
-    <section class="panel narrow"><h2>Seguimiento de navegación</h2>
-      <p>Si lo activas, el equipo CEO puede consultar tus visitas a la cartelera y fichas, uso de filtros y clics en mapa o compartir. Conservamos estas acciones durante 90 días. Al desactivarlo borramos ese historial. Tus reservas, asistencias y reportes se mantienen para prestar el servicio.</p>
-      <p>Estado: <strong>${actor.tracking ? 'Activo' : 'Desactivado'}</strong></p>
-      <button id="tracking" class="secondary">${actor.tracking ? 'Desactivar seguimiento y borrar historial' : 'Activar seguimiento'}</button>
+    <section class="panel narrow"><h2>Uso de la cartelera</h2>
+      <p>Registramos las aperturas de la cartelera y fichas, el uso de filtros y los clics en mapa, calendario y compartir durante 90 días. Las reservas, asistencias y reportes se conservan como operaciones del servicio.</p>
     </section>`;
   signOut();
+  onClick('access-ceo', ceoLogin);
   onClick('copy-code', async () => {
     await navigator.clipboard.writeText(actor.personal_code);
     notify('Código copiado.');
   });
-  onClick('tracking', async () => {
-    const result = await api('/api/me/tracking', { enabled: !actor.tracking });
-    await renderProfile();
-    document.getElementById('tracking').focus();
-    notify(result.enabled ? 'Seguimiento activado.' : 'Seguimiento desactivado. Borramos el historial de navegación.');
-  });
+
 }
 
 function staffLogin(role) {
   const title = role === 'ceo' ? 'Panel de Inteligencia CEO' : 'Gestión Comunitaria de Talleres';
   app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Área restringida</p>
-    <h1>${title}</h1><p>Usa la cuenta asignada a tu rol.</p><form id="staff-login">
+    <h1>${title}</h1><p>Usa tu cuenta de coordinación aprobada.</p><form id="staff-login">
       <label>Usuario <input name="username" autocomplete="username" required maxlength="64"></label>
       <label>Contraseña <input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
       <button type="submit">Iniciar sesión</button>
-    </form></section>`;
+    </form><div class="actions"><button id="request-coordinator" class="secondary">Crear cuenta nueva</button></div></section>`;
+  onClick('request-coordinator', coordinatorRequest);
   onForm('staff-login', async fields => {
     ({ actor } = await api('/api/staff/login', { ...fields, role }));
     await renderStaff(role);
+  });
+}
+
+function ceoLogin() {
+  app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Mi Pase · Administración</p>
+    <h1>Acceso CEO</h1><form id="ceo-login">
+      <label>Nombre de usuario <input name="username" autocomplete="username" required maxlength="64"></label>
+      <label>Teléfono <input name="phone" type="tel" autocomplete="tel" required maxlength="25"></label>
+      <label>Contraseña <input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
+      <button type="submit">Ingresar al panel CEO</button>
+    </form><div class="actions"><button id="back-to-pass" class="secondary">Volver a Mi Pase</button></div>
+  </section>`;
+  onClick('back-to-pass', () => neighborLogin(false));
+  onForm('ceo-login', async fields => {
+    ({ actor } = await api('/api/ceo/login', fields));
+    location.assign('/ceo.html');
+  });
+}
+
+function coordinatorRequest() {
+  app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Gestión comunitaria</p>
+    <h1>Solicitar cuenta</h1><p>El equipo de ChispaPlay revisará tu solicitud antes de habilitar la publicación de actividades.</p>
+    <form id="coordinator-request">
+      ${textInput('username', 'Nombre de usuario', '', 64, 'autocomplete="username" minlength="3"')}
+      ${textInput('name', 'Nombre del responsable', '', 120, 'autocomplete="name" minlength="2"')}
+      ${textInput('phone', 'Celular chileno', '', 25, 'type="tel" autocomplete="tel"')}
+      ${textInput('organization', 'Organización', '', 150, 'minlength="2"')}
+      <label>Motivo de la solicitud <textarea name="reason" required minlength="10" maxlength="800" rows="3"></textarea></label>
+      <label>Contraseña <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+      <div hidden><input name="website" tabindex="-1" autocomplete="off" aria-label="Sitio web"></div>
+      <button type="submit">Enviar solicitud</button>
+    </form><div class="actions"><button id="back-to-login" class="secondary">Ya tengo cuenta</button></div>
+  </section>`;
+  onClick('back-to-login', () => staffLogin('coordinator'));
+  onForm('coordinator-request', async fields => {
+    await api('/api/coordinator/request', fields);
+    staffLogin('coordinator');
+    notify('Solicitud recibida. Podrás iniciar sesión cuando el equipo la apruebe.');
   });
 }
 
@@ -285,7 +393,8 @@ function connectStaff(role) {
 
 async function renderStaff(role) {
   if (actor?.role !== role) {
-    staffLogin(role);
+    if (role === 'ceo') location.replace('/perfil.html?access=ceo');
+    else staffLogin(role);
   } else if (actor.must_change) {
     app.innerHTML = '<h1>Coordinación</h1>' + passwordSection(true) +
       '<button id="logout" class="secondary">Cerrar sesión</button>';
@@ -333,7 +442,9 @@ function eventEditor(event = {}) {
       <div class="fields">
         ${textInput('title', 'Título', event.title, 120)}
         ${textInput('category', 'Categoría', event.category, 70)}
-        ${textInput('commune', 'Comuna', event.commune, 60)}
+        <label>Comuna <select name="commune" aria-label="Comuna" required><option value="">Selecciona una comuna</option>
+          ${communes.map(name => '<option value="' + escapeHtml(name) + '"' + (name === event.commune ? ' selected' : '') + '>' + escapeHtml(name) + '</option>').join('')}
+        </select></label>
         ${textInput('sector', 'Sector', event.sector, 80)}
         ${textInput('venue', 'Lugar', event.venue, 120)}
         ${textInput('address', 'Dirección', event.address, 180)}
@@ -343,6 +454,10 @@ function eventEditor(event = {}) {
         ${textInput('ages', 'Edades recomendadas', event.ages, 120)}
       </div>
       <label>Descripción <textarea name="description" rows="4" required maxlength="2000">${escapeHtml(event.description)}</textarea></label>
+      <label>Por qué ir · Resumen breve <input name="why_go" maxlength="240" value="${escapeHtml(event.why_go)}"></label>
+      <label>Cronograma · Una línea por paso con el formato hora | actividad
+        <textarea name="schedule" rows="4" maxlength="2500">${escapeHtml((event.schedule || []).map(row => row.time + ' | ' + row.activity).join('\n'))}</textarea>
+      </label>
       <label>Accesibilidad y servicios (baños, sombra, acceso con silla de ruedas)
         <textarea name="accessibility" rows="3" required maxlength="400">${escapeHtml(event.accessibility)}</textarea>
       </label>
@@ -358,7 +473,9 @@ function eventEditor(event = {}) {
         <input name="photo" type="file" accept="image/jpeg,image/png,image/webp">
       </label>
       ${event.photo ? '<label class="check"><input name="remove_photo" type="checkbox"> Quitar foto actual</label>' : ''}
-      <div class="actions"><button type="submit">${edit ? 'Guardar cambios' : 'Publicar en cartelera'}</button>
+      <p class="muted">La IA puede sugerir el resumen y un cronograma. Revisa la propuesta antes de publicar. La accesibilidad debe corresponder a las condiciones que verificaste en el lugar.</p>
+      <div class="actions"><button type="button" id="suggest-sheet" class="secondary">Generar ficha sugerida con IA</button>
+      <button type="submit">${edit ? 'Guardar cambios' : 'Publicar en cartelera'}</button>
       ${edit ? '<button type="button" class="secondary" id="stop-edit">Cerrar edición</button>' : ''}</div>
     </form></section>`;
 }
@@ -381,6 +498,11 @@ function openEditor(event) {
     body.starts = isoDate(body.starts);
     body.ends = isoDate(body.ends);
     body.capacity = Number(body.capacity);
+    body.schedule = body.schedule.split('\n').filter(line => line.trim()).map(line => {
+      const divider = line.indexOf('|');
+      if (divider < 0) throw new Error('Separa la hora y la actividad del cronograma con |.');
+      return { time: line.slice(0, divider).trim(), activity: line.slice(divider + 1).trim() };
+    });
     body.latitude = body.latitude === '' ? null : Number(body.latitude);
     body.longitude = body.longitude === '' ? null : Number(body.longitude);
     body.wheelchair = body.wheelchair === 'on';
@@ -391,6 +513,23 @@ function openEditor(event) {
     await api(url, body);
     await renderCoordinator();
     notify(event ? 'Actividad actualizada.' : 'Actividad publicada en la cartelera.');
+  });
+  onClick('suggest-sheet', async () => {
+    const form = document.getElementById('edit-event');
+    if (!form.reportValidity()) return;
+    const values = Object.fromEntries(new FormData(form));
+    const facts = Object.fromEntries(['title', 'description', 'commune', 'venue', 'address', 'accessibility'].map(key => [key, values[key]]));
+    facts.starts_label = date(new Date(isoDate(values.starts)).getTime() / 1000);
+    facts.ends_label = date(new Date(isoDate(values.ends)).getTime() / 1000);
+    const start = new Date(isoDate(values.starts)).getTime() / 1000;
+    const end = new Date(isoDate(values.ends)).getTime() / 1000;
+    if (end <= start) throw new Error('El término debe ser posterior al inicio.');
+    facts.schedule_times = [values.starts.slice(11), inputDate((start + end) / 2).slice(11), values.ends.slice(11)];
+    notify('La IA está preparando la ficha…');
+    const suggestion = await api('/api/coordinator/suggest', facts);
+    form.elements.why_go.value = suggestion.why_go;
+    form.elements.schedule.value = suggestion.schedule.map(row => row.time + ' | ' + row.activity).join('\n');
+    notify('Ficha sugerida lista. Revisa el resumen y el cronograma antes de publicar.');
   });
   onClick('stop-edit', () => openEditor());
 }
@@ -404,7 +543,7 @@ async function renderRoster(event) {
       escapeHtml(item.name), status(item.status), item.attended_at ? escapeHtml(date(item.attended_at)) : '—'
     ]), 'Todavía no hay inscripciones.')}
     ${event.status === 'published' ? `<form id="record-attendance" class="narrow">
-      <label>Código personal del vecino <input name="personal_code" required maxlength="20" autocapitalize="characters" autocomplete="off" placeholder="CP-…"></label>
+      <label>Código personal del vecino <input name="personal_code" required maxlength="5" inputmode="numeric" pattern="[0-9]{5}" autocomplete="off" placeholder="12345"></label>
       <button type="submit">Registrar asistencia</button>
       <p class="muted">Disponible desde 30 minutos antes y hasta dos horas después de la actividad.</p>
     </form>` : '<p>Actividad cancelada.</p>'}
@@ -528,8 +667,8 @@ async function renderCEO(search = '') {
       <dl class="facts">${metrics.map(([key, value]) => '<div><dt>' + key + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('')}</dl>
       <p class="muted">La tasa usa reservas confirmadas de actividades terminadas y excluye las canceladas.</p>
     </section>
-    <section class="panel"><h2>Navegación con seguimiento activo</h2>
-      <p class="muted">Últimos 90 días. Incluye solo cuentas que activaron el seguimiento.</p>
+    <section class="panel"><h2>Navegación de usuarios</h2>
+      <p class="muted">Últimos 90 días de las cuentas vecinales.</p>
       ${table(['Acción', 'Total', 'Vecinos únicos'], data.traffic.map(item => [
         escapeHtml(actionName(item.action)), String(item.total), String(item.people)
       ]), 'Todavía no hay acciones de navegación registradas.')}
@@ -540,12 +679,20 @@ async function renderCEO(search = '') {
         <button type="submit" class="secondary">Buscar</button>
       </form>
       <p class="muted">Hasta 100 resultados. Busca una cuenta específica para ver su historial.</p>
-      ${table(['Nombre', 'Teléfono', 'Seguimiento', 'Registro', 'Historial'], data.neighbors.map((item, index) => [
-        escapeHtml(item.name), escapeHtml(item.phone), item.tracking ? 'Activo' : 'Desactivado',
+      ${table(['Nombre', 'Teléfono', 'Registro', 'Historial'], data.neighbors.map((item, index) => [
+        escapeHtml(item.name), escapeHtml(item.phone),
         escapeHtml(date(item.created)), '<button class="secondary" id="history-' + index + '">Ver historial</button>'
       ]), 'No hay vecinos para esta búsqueda.')}
     </section>
     <section class="panel" id="neighbor-history" hidden></section>
+    <section class="panel"><h2>Solicitudes de gestión comunitaria</h2>
+      ${table(['Responsable', 'Contacto', 'Organización', 'Motivo', 'Decisión'], data.requests.map((item, index) => [
+        escapeHtml(item.name) + '<br>' + escapeHtml(item.username), escapeHtml(item.phone),
+        escapeHtml(item.organization), escapeHtml(item.reason),
+        '<div class="actions"><button class="secondary" id="approve-request-' + index + '">Aprobar</button>' +
+        '<button class="secondary" id="reject-request-' + index + '">Rechazar</button></div>'
+      ]), 'No hay solicitudes pendientes.')}
+    </section>
     <section class="panel"><h2>Coordinadores</h2>
       ${table(['Usuario', 'Nombre u organización', 'Estado', 'Gestión'], data.staff.map((item, index) => [
         escapeHtml(item.username), escapeHtml(item.name), item.active ? (item.must_change ? 'Cambio de clave pendiente' : 'Activo') : 'Suspendido',
@@ -589,6 +736,16 @@ async function renderCEO(search = '') {
   `;
   connectStaff('ceo');
   onForm('find-neighbor', fields => renderCEO(fields.search));
+  for (const [index, request] of data.requests.entries()) {
+    for (const [prefix, decision] of [['approve', 'approved'], ['reject', 'rejected']]) {
+      onClick(prefix + '-request-' + index, async () => {
+        if (!confirm((decision === 'approved' ? '¿Aprobar' : '¿Rechazar') + ' la solicitud de ' + request.organization + '?')) return;
+        await api('/api/ceo/requests/review', { id: request.id, decision });
+        await renderCEO(search);
+        notify(decision === 'approved' ? 'Cuenta de coordinación habilitada.' : 'Solicitud rechazada.');
+      });
+    }
+  }
   onForm('create-staff', async fields => {
     await api('/api/ceo/staff', fields);
     await renderCEO(search);
@@ -645,11 +802,15 @@ async function renderCEO(search = '') {
 
 async function start() {
   try {
+    const [sessionData, geographyData, catalogData] = await Promise.all([
+      api('/api/session'), api('/api/communes'), api('/api/events')
+    ]);
+    actor = sessionData.actor;
+    communes = geographyData.communes;
+    configureGeography(communes, catalogData.events);
     renderNavigation(page, actor);
-    ({ actor } = await api('/api/session'));
-    if (actor) renderNavigation(page, actor);
     if (page === 'home' || page === 'catalog') {
-      const { events } = await api('/api/events');
+      const events = catalogData.events;
       renderDiscovery(page, events, track);
     }
     if (page === 'event') await renderEvent(query.get('id'));

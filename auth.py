@@ -4,8 +4,9 @@ import hashlib
 import hmac
 import re
 import secrets
+import sqlite3
 
-from core import APIError, audit, database, field, now, rate_limit
+from core import APIError, audit, database, field, now, rate_limit, personal_code
 
 PASSWORD_ITERATIONS = 600_000
 
@@ -79,7 +80,7 @@ def actor_for(db, token, *roles, temporary=False):
         if row and row["role"] == "neighbor":
             actor = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE id=?", (row["actor_id"],)).fetchone()
         elif row:
-            actor = db.execute("SELECT * FROM staff WHERE id=? AND active=1", (row["actor_id"],)).fetchone()
+            actor = db.execute("SELECT * FROM staff WHERE id=? AND role=? AND active=1", (row["actor_id"], row["role"])).fetchone()
     if roles:
         if not actor:
             raise APIError(401, "Inicia sesión para continuar.")
@@ -108,12 +109,14 @@ def register_neighbor(body, ip, previous):
     rate_limit((f"neighbor-register:{ip}", 8, 3600))
     encoded = password_hash(password)
     with database(write=True) as db:
+        if db.execute("SELECT 1 FROM staff WHERE role='ceo' AND phone=?", (phone,)).fetchone():
+            raise APIError(409, "Este celular está reservado para una cuenta de administración.")
         if db.execute("SELECT 1 FROM neighbors WHERE phone=?", (phone,)).fetchone():
             raise APIError(409, "Ya existe una cuenta para este número. Inicia sesión.")
         actor_id = secrets.token_hex(16)
-        code = "CP-" + secrets.token_hex(6).upper()
-        db.execute("""INSERT INTO neighbors(id,phone,name,personal_code,created,password_hash)
-            VALUES (?,?,?,?,?,?)""", (actor_id, phone, name, code, now(), encoded))
+        code = personal_code(db)
+        db.execute("""INSERT INTO neighbors(id,phone,name,personal_code,created,password_hash,tracking)
+            VALUES (?,?,?,?,?,?,1)""", (actor_id, phone, name, code, now(), encoded))
         actor = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE id=?", (actor_id,)).fetchone()
         audit(db, actor, "vecino_registrado")
         cookie = session(db, actor, previous)
@@ -141,7 +144,7 @@ def login_staff(body, ip, previous):
     username = username_for(body.get("username"))
     password = body.get("password")
     role = body.get("role")
-    if role not in ("coordinator", "ceo") or not isinstance(password, str) or not 1 <= len(password) <= 128:
+    if role != "coordinator" or not isinstance(password, str) or not 1 <= len(password) <= 128:
         raise APIError(400, "Ingresa usuario y contraseña.")
     rate_limit((f"staff-ip:{ip}", 25, 900), (f"staff-user:{username}", 8, 900))
     with database() as db:
@@ -178,3 +181,51 @@ def change_password(body, token):
         cookie = session(db, actor)
         audit(db, actor, "contrasena_actualizada")
     return {"actor": public_actor(actor)}, cookie
+
+
+def login_ceo(body, ip, previous):
+    username = field(body, "username", "el usuario CEO", 64)
+    phone = phone_number(body.get("phone"))
+    password = body.get("password")
+    if not isinstance(password, str) or not 1 <= len(password) <= 128:
+        raise APIError(400, "Ingresa tus credenciales.")
+    rate_limit((f"ceo-ip:{ip}", 10, 900), ("ceo-access", 20, 900))
+    with database() as db:
+        actor = db.execute("SELECT * FROM staff WHERE role='ceo' AND active=1").fetchone()
+    valid_password = verify_password(password, actor["password_hash"] if actor else DUMMY_HASH)
+    valid_identity = bool(actor and actor["phone"] and
+                          hmac.compare_digest(username.encode(), actor["username"].encode()) and
+                          hmac.compare_digest(phone.encode(), actor["phone"].encode()))
+    if not valid_password or not valid_identity:
+        raise APIError(401, "Credenciales de administración incorrectas.")
+    with database(write=True) as db:
+        current = db.execute("SELECT * FROM staff WHERE id=? AND active=1", (actor["id"],)).fetchone()
+        if not current or current["password_hash"] != actor["password_hash"]:
+            raise APIError(401, "Vuelve a iniciar sesión.")
+        cookie = session(db, current, previous)
+        audit(db, current, "sesion_ceo_iniciada")
+    return {"actor": public_actor(current)}, cookie
+
+
+def request_coordinator(body, ip):
+    username = username_for(body.get("username"))
+    name = field(body, "name", "tu nombre", 120, 2)
+    phone = phone_number(body.get("phone"))
+    organization = field(body, "organization", "la organización", 150, 2)
+    reason = field(body, "reason", "el motivo de la solicitud", 800, 10)
+    password = validate_password(body.get("password"))
+    if body.get("website"):
+        raise APIError(400, "No se pudo enviar la solicitud.")
+    rate_limit((f"coordinator-request:{ip}", 5, 3600), (f"coordinator-request-phone:{phone}", 2, 3600))
+    encoded = password_hash(password)
+    request_id = secrets.token_hex(16)
+    with database(write=True) as db:
+        if db.execute("SELECT 1 FROM staff WHERE username=? OR (role='ceo' AND phone=?)", (username, phone)).fetchone():
+            raise APIError(409, "Ese usuario o celular ya está reservado.")
+        try:
+            db.execute("""INSERT INTO coordinator_requests
+                (id,username,name,phone,organization,reason,password_hash,created) VALUES (?,?,?,?,?,?,?,?)""",
+                (request_id, username, name, phone, organization, reason, encoded, now()))
+        except sqlite3.IntegrityError:
+            raise APIError(409, "Ya existe una solicitud para ese usuario.") from None
+    return {"status": "pending"}

@@ -15,9 +15,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
 import auth
+import ai
 import events
 import management
-from core import APIError, ROOT, audit, database, init_db, now, prune
+from core import APIError, ROOT, audit, database, init_db, now, prune, rate_limit
+from geography import COMMUNES
 
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8080"))
@@ -45,7 +47,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", cache)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
-        self.send_header("Content-Security-Policy", "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:")
+        self.send_header("Content-Security-Policy", "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; frame-src https://maps.google.com https://www.google.com")
         self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)")
         if not LOCAL_HTTP:
             self.send_header("Strict-Transport-Security", "max-age=31536000")
@@ -156,6 +158,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/health":
                 db.execute("SELECT 1 FROM staff LIMIT 1").fetchone()
                 return {"status": "online"}
+            if path == "/api/communes":
+                return {"communes": list(COMMUNES)}
             if path == "/api/session":
                 return {"actor": auth.public_actor(auth.actor_for(db, token))}
             if path == "/api/events":
@@ -197,6 +201,23 @@ class Handler(BaseHTTPRequestHandler):
             return auth.register_neighbor(body, self.client_ip(), token)
         if path == "/api/neighbors/login":
             return auth.login_neighbor(body, self.client_ip(), token)
+        if path == "/api/ceo/login":
+            return auth.login_ceo(body, self.client_ip(), token)
+        if path == "/api/coordinator/request":
+            return auth.request_coordinator(body, self.client_ip()), None
+        if path == "/api/coordinator/suggest":
+            with database() as db:
+                actor = auth.actor_for(db, token, "coordinator")
+            rate_limit((f"ai:{actor['id']}", 10, 3600))
+            suggestion = ai.suggest(body)
+            with database(write=True) as db:
+                actor = auth.actor_for(db, token, "coordinator")
+                audit(db, actor, "ficha_ia_generada")
+            return suggestion, None
+        if re.fullmatch(r"/api/coordinator/events/[0-9a-f]{32}/attendance", path):
+            with database() as db:
+                actor = auth.actor_for(db, token, "coordinator")
+            rate_limit((f"attendance:{actor['id']}", 30, 900))
         if path == "/api/staff/login":
             return auth.login_staff(body, self.client_ip(), token)
         if path == "/api/staff/password":
@@ -208,8 +229,6 @@ class Handler(BaseHTTPRequestHandler):
             return self.mutate(db, path, body, token), None
 
     def mutate(self, db, path, body, token):
-        if path == "/api/me/tracking":
-            return management.tracking(db, auth.actor_for(db, token, "neighbor"), body.get("enabled"))
         if path == "/api/traffic":
             return management.visit(db, auth.actor_for(db, token, "neighbor"), body)
         if match := re.fullmatch(r"/api/events/([0-9a-f]{32})/(reserve|cancel|report)", path):
@@ -254,20 +273,25 @@ def setup_ceo(args):
     name = args.name.strip()
     if not 2 <= len(name) <= 120:
         raise APIError(400, "Revisa el nombre.")
+    phone = auth.phone_number(args.phone)
     password = auth.validate_password(getpass.getpass("Contraseña CEO: "))
     if password != getpass.getpass("Confirma contraseña: "):
         raise APIError(400, "Las contraseñas no coinciden.")
     encoded = auth.password_hash(password)
     with database(write=True) as db:
         existing = db.execute("SELECT * FROM staff WHERE username=?", (username,)).fetchone()
+        other_ceo = db.execute("SELECT 1 FROM staff WHERE role='ceo' AND active=1 AND username!=?", (username,)).fetchone()
+        if other_ceo:
+            raise APIError(409, "Ya existe una cuenta CEO activa.")
         if existing:
             if not args.reset or existing["role"] != "ceo":
                 raise APIError(409, "El usuario ya existe. Usa --reset solo para una cuenta CEO existente.")
-            db.execute("UPDATE staff SET password_hash=?,name=?,active=1 WHERE id=?", (encoded, name, existing["id"]))
+            db.execute("UPDATE staff SET password_hash=?,name=?,phone=?,active=1 WHERE id=?", (encoded, name, phone, existing["id"]))
             db.execute("DELETE FROM sessions WHERE actor_id=?", (existing["id"],))
             audit(db, existing, "credencial_ceo_restaurada")
         else:
             staff_id = auth.create_staff(db, username, name, encoded, "ceo")
+            db.execute("UPDATE staff SET phone=? WHERE id=?", (phone, staff_id))
             audit(db, {"id": staff_id, "role": "ceo"}, "cuenta_ceo_creada")
     print(f"Cuenta CEO habilitada: {username}")
 
@@ -278,6 +302,7 @@ def main():
     ceo = commands.add_parser("ceo", help="Crear o restablecer una cuenta CEO desde el servidor")
     ceo.add_argument("username")
     ceo.add_argument("--name", required=True)
+    ceo.add_argument("--phone", required=True)
     ceo.add_argument("--reset", action="store_true")
     args = parser.parse_args()
     init_db()

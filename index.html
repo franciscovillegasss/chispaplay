@@ -4,14 +4,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ChispaPlay Maipú | Talleres y Actividades Familiares Gratuitas a 15 min</title>
-    <meta name="description" content="Cartelera oficial de talleres y actividades familiares 100% gratuitas a menos de 15 minutos de tu casa en Maipú y Valparaíso." />
+    <title>ChispaPlay | Actividades de la Región Metropolitana</title>
+    <meta name="description" content="Cartelera oficial de talleres y actividades familiares 100% gratuitas a menos de 15 minutos de tu casa en la Región Metropolitana." />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23E11D48'/%3E%3Ctext x='50' y='65' font-family='monospace' font-size='50' font-weight='900' fill='white' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E" />
 
     <!-- Open Graph / WhatsApp Social Share -->
     <meta property="og:type" content="website" />
     <meta property="og:title" id="og-title-meta" content="ChispaPlay | Talleres y Actividades Familiares Gratuitas a 15 min" />
-    <meta property="og:description" id="og-desc-meta" content="Cartelera oficial de talleres y actividades familiares 100% gratuitas a menos de 15 minutos de tu casa en Maipú y Valparaíso." />
+    <meta property="og:description" id="og-desc-meta" content="Cartelera oficial de talleres y actividades familiares 100% gratuitas a menos de 15 minutos de tu casa en la Región Metropolitana." />
     <meta property="og:site_name" content="ChispaPlay" />
     <meta property="og:locale" content="es_CL" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -63,24 +63,12 @@
             ¿QUÉ HACEMOS EN
           </h1>
 
-          <!-- Recuadro Blanco de Selección Maipú | Valparaíso -->
+          <!-- Selección de comuna de la Región Metropolitana -->
           <div class="inline-flex items-center gap-2 bg-white p-1.5 sm:p-2 border-4 border-black shadow-[6px_6px_0px_0px_#111111]">
-            <button
-              type="button"
-              id="btn-select-maipu"
-              data-commune="maipu"
-              class="btn-commune-choice px-4 sm:px-6 py-2 sm:py-2.5 font-black uppercase text-base sm:text-xl tracking-wider transition-all cursor-pointer bg-neutral-100 text-neutral-800 hover:bg-black hover:text-white"
-            >
-              MAIPÚ
-            </button>
-            <button
-              type="button"
-              id="btn-select-valpo"
-              data-commune="valparaiso"
-              class="btn-commune-choice px-4 sm:px-6 py-2 sm:py-2.5 font-black uppercase text-base sm:text-xl tracking-wider transition-all cursor-pointer bg-neutral-100 text-neutral-800 hover:bg-black hover:text-white"
-            >
-              VALPARAÍSO
-            </button>
+            <label class="sr-only" for="home-commune">Comuna de la Región Metropolitana</label>
+            <select id="home-commune" class="bg-white text-black font-black uppercase text-base sm:text-xl p-2 max-w-full">
+              <option value="">ELIGE TU COMUNA</option>
+            </select>
           </div>
 
           <span class="text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-tight text-white leading-none">

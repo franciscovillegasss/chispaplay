@@ -1,11 +1,11 @@
 CREATE TABLE IF NOT EXISTS neighbors (
  id TEXT PRIMARY KEY, phone TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
- personal_code TEXT NOT NULL UNIQUE, tracking INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, password_hash TEXT
+ personal_code TEXT NOT NULL UNIQUE, tracking INTEGER NOT NULL DEFAULT 1, created INTEGER NOT NULL, password_hash TEXT
 );
 CREATE TABLE IF NOT EXISTS staff (
  id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, name TEXT NOT NULL,
  role TEXT NOT NULL CHECK(role IN ('ceo','coordinator')), active INTEGER NOT NULL DEFAULT 1,
- must_change INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL
+ must_change INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, phone TEXT
 );
 CREATE TABLE IF NOT EXISTS sessions (
  digest TEXT PRIMARY KEY, actor_id TEXT NOT NULL, role TEXT NOT NULL, expires INTEGER NOT NULL
@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS events (
  starts INTEGER NOT NULL, ends INTEGER NOT NULL, capacity INTEGER NOT NULL CHECK(capacity>0),
  wheelchair INTEGER NOT NULL DEFAULT 0, sensory INTEGER NOT NULL DEFAULT 0, latitude REAL, longitude REAL,
  status TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('published','cancelled')),
+ why_go TEXT NOT NULL DEFAULT '', schedule_json TEXT NOT NULL DEFAULT '[]',
  created INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS event_owner ON events(owner_id,starts);
@@ -46,4 +47,11 @@ CREATE TABLE IF NOT EXISTS reports (
  id TEXT PRIMARY KEY, event_id TEXT NOT NULL REFERENCES events(id), neighbor_id TEXT NOT NULL REFERENCES neighbors(id),
  detail TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'received' CHECK(status IN ('received','reviewed','resolved')),
  created INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS coordinator_requests (
+ id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, name TEXT NOT NULL, phone TEXT NOT NULL,
+ organization TEXT NOT NULL, reason TEXT NOT NULL, password_hash TEXT NOT NULL,
+ status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+ created INTEGER NOT NULL, reviewed_at INTEGER, reviewed_by TEXT REFERENCES staff(id)
 );

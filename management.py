@@ -7,7 +7,7 @@ import auth
 import events
 from core import APIError, TRAFFIC_DAYS, audit, field, identifier, now
 
-VISIT_ACTIONS = {"cartelera_abierta", "filtros_usados", "ficha_abierta", "enlace_compartido", "mapa_abierto"}
+VISIT_ACTIONS = {"cartelera_abierta", "filtros_usados", "ficha_abierta", "enlace_compartido", "mapa_abierto", "calendario_guardado"}
 
 
 def dashboard(db, search):
@@ -37,7 +37,9 @@ def dashboard(db, search):
         """)
     reports = db.execute("""SELECT r.id,r.status,r.detail,r.created,e.title FROM reports r
         JOIN events e ON e.id=r.event_id ORDER BY r.status='resolved',r.created DESC LIMIT 100""")
-    return {"counts": dict(counts), "traffic": [dict(r) for r in traffic], "staff": [dict(r) for r in staff],
+    requests = db.execute("""SELECT id,username,name,phone,organization,reason,status,created FROM coordinator_requests
+        WHERE status='pending' ORDER BY created""")
+    return {"requests": [dict(row) for row in requests], "counts": dict(counts), "traffic": [dict(r) for r in traffic], "staff": [dict(r) for r in staff],
             "neighbors": [dict(r) for r in neighbors], "audit": [dict(r) for r in entries],
             "reports": [dict(r) for r in reports], "events": events.catalog(db, all_events=True)}
 
@@ -59,6 +61,27 @@ def history(db, viewer, neighbor):
 
 
 def manage(db, actor, path, body):
+    if path == "/api/ceo/requests/review":
+        request_id = identifier(body.get("id"), "la solicitud")
+        decision = body.get("decision")
+        if decision not in ("approved", "rejected"):
+            raise APIError(400, "Selecciona aprobar o rechazar.")
+        request = db.execute("SELECT * FROM coordinator_requests WHERE id=?", (request_id,)).fetchone()
+        if not request:
+            raise APIError(404, "Solicitud no encontrada.")
+        if request["status"] != "pending":
+            return {"status": request["status"]}
+        if decision == "approved":
+            try:
+                staff_id = auth.create_staff(db, request["username"], request["organization"],
+                                             request["password_hash"], "coordinator")
+            except sqlite3.IntegrityError:
+                raise APIError(409, "El usuario solicitado ya existe.") from None
+            db.execute("UPDATE staff SET phone=? WHERE id=?", (request["phone"], staff_id))
+        db.execute("UPDATE coordinator_requests SET status=?,reviewed_at=?,reviewed_by=? WHERE id=?",
+                   (decision, now(), actor["id"], request_id))
+        audit(db, actor, "solicitud_" + decision, request_id)
+        return {"status": decision}
     if path == "/api/ceo/staff":
         username = auth.username_for(body.get("username"))
         name = field(body, "name", "el nombre del coordinador u organización", 120, 2)
@@ -103,25 +126,12 @@ def manage(db, actor, path, body):
     raise APIError(404, "Ruta no encontrada.")
 
 
-def tracking(db, actor, enabled):
-    if type(enabled) is not bool:
-        raise APIError(400, "Selecciona una preferencia válida.")
-    db.execute("UPDATE neighbors SET tracking=? WHERE id=?", (int(enabled), actor["id"]))
-    if not enabled:
-        db.execute("DELETE FROM traffic WHERE neighbor_id=?", (actor["id"],))
-    if bool(actor["tracking"]) != enabled:
-        audit(db, actor, "seguimiento_activado" if enabled else "seguimiento_desactivado")
-    return {"enabled": enabled}
-
-
 def visit(db, actor, body):
-    if not actor["tracking"]:
-        return {"recorded": False}
     action = body.get("action")
     if not isinstance(action, str) or action not in VISIT_ACTIONS:
         raise APIError(400, "Acción de navegación inválida.")
     event_id = None
-    if action in {"ficha_abierta", "enlace_compartido", "mapa_abierto"}:
+    if action in {"ficha_abierta", "enlace_compartido", "mapa_abierto", "calendario_guardado"}:
         event_id = identifier(body.get("event_id"), "la actividad")
         events.event_row(db, event_id)
     current = now()

@@ -44,3 +44,5 @@
 .staff-tabs { @apply flex overflow-x-auto gap-2 border-b-2 border-black mb-8 pb-1; }
 .staff-tabs button { @apply shrink-0; }
 #safety::backdrop { background-color: rgb(0 0 0 / 0.6); }
+
+.location-map { width: 100%; min-height: 300px; border: 2px solid #111111; }
