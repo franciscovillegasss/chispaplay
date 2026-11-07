@@ -1,3 +1,5 @@
+import { renderDiscovery, renderNavigation } from './editorial.js';
+
 const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
 const query = new URLSearchParams(location.search);
@@ -101,53 +103,6 @@ function table(headers, rows, empty) {
     '</tbody></table></div>';
 }
 
-function eventList(events) {
-  if (!events.length) return '<p class="panel">No hay actividades publicadas para esta selección.</p>';
-  return '<ul class="event-list">' + events.map(event => {
-    const location = event.sector + ' · ' + event.commune;
-    const spots = event.starts * 1000 <= Date.now() ? 'Inscripciones cerradas' :
-      event.available ? event.available + ' cupos disponibles' : 'Lista de espera disponible';
-    const image = event.photo ? '<img src="' + escapeHtml(event.photo) + '" alt="" loading="lazy" decoding="async">' : '';
-    return '<li class="event-item">' + image + '<div><span class="badge">' + escapeHtml(spots) +
-      '</span><h2><a href="' + eventUrl(event.id) + '">' + escapeHtml(event.title) + '</a></h2><p>' +
-      escapeHtml(date(event.starts) + ' · ' + location) + '</p><p>' + escapeHtml(event.venue) + '</p></div></li>';
-  }).join('') + '</ul>';
-}
-
-async function renderCatalog(home) {
-  const { events } = await api('/api/events');
-  const intro = home
-    ? `<section class="hero"><p class="eyebrow">ChispaPlay · Comunidad</p>
-       <h1>Encuentra actividades en tu barrio</h1>
-       <p class="lede">Consulta el horario, los cupos y quién organiza. Reserva con tu Pase Vecinal y lleva tu código personal el día de la actividad.</p>
-       <div class="actions"><a class="button" href="/actividades.html">Explorar cartelera</a>
-       <a class="button secondary" href="/perfil.html">Abrir mi Pase</a></div></section><h2>Próximas actividades</h2>`
-    : '<h1>Cartelera de actividades</h1><p class="lede">Encuentra actividades por comuna, sector o categoría.</p>';
-  app.innerHTML = intro + `<form id="filters" class="panel filters" aria-label="Filtrar actividades">
-    <label>Buscar <input name="search" type="search" maxlength="100" placeholder="Actividad, lugar o sector"></label>
-    <label>Comuna <select name="commune"><option value="">Todas las comunas</option></select></label>
-    <label>Categoría <select name="category"><option value="">Todas las categorías</option></select></label>
-    <button type="submit">Aplicar filtros</button></form><div id="results" aria-live="polite"></div>`;
-  const form = document.getElementById('filters');
-  for (const key of ['commune', 'category']) {
-    const values = [...new Set(events.map(item => item[key]))].sort((a, b) => a.localeCompare(b, 'es-CL'));
-    for (const value of values) form.elements[key].add(new Option(value, value));
-  }
-  const results = document.getElementById('results');
-  function show({ search = '', commune = '', category = '' } = {}) {
-    const needle = search.trim().toLocaleLowerCase('es-CL');
-    results.innerHTML = eventList(events.filter(event =>
-      (!commune || event.commune === commune) && (!category || event.category === category) &&
-      [event.title, event.venue, event.sector].join(' ').toLocaleLowerCase('es-CL').includes(needle)));
-  }
-  show();
-  onForm('filters', fields => {
-    show(fields);
-    track('filtros_usados');
-  });
-  track('cartelera_abierta');
-}
-
 async function renderEvent(id, logView = true) {
   if (!validId(id)) {
     app.innerHTML = '<h1>Selecciona una actividad</h1><a href="/actividades.html">Volver a la cartelera</a>';
@@ -169,9 +124,13 @@ async function renderEvent(id, logView = true) {
   ];
   document.title = event.title + ' · ChispaPlay';
   app.innerHTML = `
-    <p><a href="/actividades.html">← Volver a la cartelera</a></p>
+    <div class="dedicated-activity-view max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 animate-fade-soft">
+    <div class="pb-4 mb-6 border-b-2 border-black"><a class="text-xs font-black uppercase" href="/actividades.html">← Volver a la cartelera</a></div>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+    <div class="lg:col-span-8 space-y-6">
     <p class="eyebrow">${escapeHtml(event.commune + ' · ' + event.sector + ' · ' + event.category)}</p>
-    <h1>${escapeHtml(event.title)}</h1>
+    <h1 class="text-3xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight">${escapeHtml(event.title)}</h1>
+    <p class="text-xs font-mono font-bold text-neutral-700">📍 ${escapeHtml(event.venue)} · ${escapeHtml(date(event.starts))}</p>
     ${event.status === 'cancelled' ? '<p class="badge">Actividad cancelada</p>' : ''}
     ${event.photo ? '<img class="event-cover" src="' + escapeHtml(event.photo) + '" alt="">' : ''}
     <section class="panel"><p class="preline">${escapeHtml(event.description)}</p>
@@ -181,7 +140,8 @@ async function renderEvent(id, logView = true) {
         <a class="button secondary" href="${escapeHtml(share)}" id="share" target="_blank" rel="noopener">Compartir por WhatsApp</a>
       </div>
     </section>
-    <section class="panel narrow"><h2>Inscripción</h2>
+    </div><aside class="lg:col-span-4 lg:sticky lg:top-8">
+    <section class="panel ticket-panel"><p class="eyebrow">Pase Vecinal</p><h2>Inscripción</h2>
       ${alreadyBooked ? '<p class="badge">' + status(booking) + '</p>' : ''}
       ${booking === 'reserved' && event.status === 'published' ? '<p>Presenta tu <a href="/perfil.html">código personal</a> al llegar.</p>' : ''}
       ${booking === 'waiting' && open ? '<p>Si se libera un cupo, el sistema confirma la reserva en orden de inscripción. Revisa el estado en Mi Pase.</p>' : ''}
@@ -197,6 +157,7 @@ async function renderEvent(id, logView = true) {
       <form id="report"><label>Describe el problema
         <textarea name="detail" rows="4" required minlength="5" maxlength="1000"></textarea></label>
         <button type="submit">Enviar reporte</button></form></details>` : ''}
+    </aside></div></div>
   `;
   document.getElementById('share').addEventListener('click', () => track('enlace_compartido', id));
   document.getElementById('directions').addEventListener('click', () => track('mapa_abierto', id));
@@ -219,46 +180,29 @@ async function renderEvent(id, logView = true) {
   if (logView) track('ficha_abierta', id);
 }
 
-function neighborLogin() {
-  app.innerHTML = `<h1>Mi Pase Vecinal</h1>
-    <section class="panel narrow"><h2>Entra con tu celular</h2>
-      <p>Te enviaremos un SMS para verificar tu número y recuperar tus reservas en cualquier dispositivo.</p>
-      <form id="sms-start">
-        <label>Nombre <input name="name" autocomplete="name" required minlength="2" maxlength="100"></label>
-        <label>Celular chileno <input name="phone" type="tel" autocomplete="tel" required maxlength="25" placeholder="+56 9 1234 5678"></label>
-        <button type="submit">Enviar código por SMS</button>
-      </form>
-      <form id="sms-check" hidden>
-        <label>Código del SMS <input name="code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{4,10}" required></label>
-        <button type="submit">Verificar y entrar</button>
-        <button type="button" class="secondary" id="restart-sms">Cambiar número o pedir otro SMS</button>
-      </form>
-    </section>`;
-  let challenge, name;
-  const start = document.getElementById('sms-start');
-  const check = document.getElementById('sms-check');
-  onForm('sms-start', async fields => {
-    ({ challenge } = await api('/api/sms/start', { phone: fields.phone }));
-    name = fields.name;
-    start.hidden = true;
-    check.hidden = false;
-    check.elements.code.focus();
-    notify('Te enviamos un código por SMS.');
-  });
-  onForm('sms-check', async fields => {
-    ({ actor } = await api('/api/sms/check', { challenge, name, code: fields.code }));
+function neighborLogin(register = true) {
+  app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Credencial de barrio</p>
+    <h1>Mi Pase Vecinal</h1><h2>${register ? 'Crea tu cuenta' : 'Entra a tu cuenta'}</h2>
+    <p>${register ? 'Usa tu nombre y celular para obtener tu código personal de asistencia.' : 'Ingresa el celular con el que creaste tu Pase.'}</p>
+    <form id="neighbor-auth">
+      ${register ? '<label>Nombre <input name="name" autocomplete="name" required minlength="2" maxlength="100"></label>' : ''}
+      <label>Celular chileno <input name="phone" type="tel" autocomplete="tel" required maxlength="25" placeholder="+56 9 1234 5678"></label>
+      <label>Contraseña <input name="password" type="password" autocomplete="${register ? 'new-password' : 'current-password'}" required ${register ? 'minlength="12"' : ''} maxlength="128"></label>
+      ${register ? '<div hidden aria-hidden="true"><label>Sitio web <input name="website" autocomplete="off" tabindex="-1"></label></div>' : ''}
+      <button type="submit">${register ? 'Crear Pase Vecinal' : 'Iniciar sesión'}</button>
+    </form>
+    <button id="switch-auth" class="secondary">${register ? 'Ya tengo una cuenta' : 'Crear una cuenta'}</button>
+  </section>`;
+  onClick('switch-auth', () => neighborLogin(!register));
+  onForm('neighbor-auth', async fields => {
+    ({ actor } = await api('/api/neighbors/' + (register ? 'register' : 'login'), fields));
+    renderNavigation(page, actor);
     if (validId(query.get('activity'))) {
       location.replace(eventUrl(query.get('activity')));
     } else {
       await renderProfile();
       notify('Ya puedes usar tu Pase Vecinal.');
     }
-  });
-  onClick('restart-sms', () => {
-    check.reset();
-    check.hidden = true;
-    start.hidden = false;
-    start.elements.phone.focus();
   });
 }
 
@@ -270,7 +214,7 @@ async function renderProfile() {
   const data = await api('/api/me');
   actor = data.actor;
   app.innerHTML = `<h1>Mi Pase Vecinal</h1>
-    <section class="panel narrow"><h2>${escapeHtml(actor.name)}</h2>
+    <section class="panel narrow ticket-panel"><p class="eyebrow">Credencial vecinal</p><h2>${escapeHtml(actor.name)}</h2>
       <p>${escapeHtml(actor.phone)}</p><p>Presenta este código cuando llegues a una actividad reservada.</p>
       <code class="code">${escapeHtml(actor.personal_code)}</code>
       <div class="actions"><button class="secondary" id="copy-code">Copiar código</button>
@@ -307,9 +251,9 @@ async function renderProfile() {
 }
 
 function staffLogin(role) {
-  const title = role === 'ceo' ? 'Acceso CEO' : 'Coordinación';
-  app.innerHTML = `<h1>${title}</h1><section class="panel narrow">
-    <p>Usa la cuenta asignada a tu rol.</p><form id="staff-login">
+  const title = role === 'ceo' ? 'Panel de Inteligencia CEO' : 'Gestión Comunitaria de Talleres';
+  app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Área restringida</p>
+    <h1>${title}</h1><p>Usa la cuenta asignada a tu rol.</p><form id="staff-login">
       <label>Usuario <input name="username" autocomplete="username" required maxlength="64"></label>
       <label>Contraseña <input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
       <button type="submit">Iniciar sesión</button>
@@ -402,6 +346,14 @@ function eventEditor(event = {}) {
       <label>Accesibilidad y servicios (baños, sombra, acceso con silla de ruedas)
         <textarea name="accessibility" rows="3" required maxlength="400">${escapeHtml(event.accessibility)}</textarea>
       </label>
+      <div class="actions">
+        <label class="check"><input type="checkbox" name="wheelchair" ${event.wheelchair ? 'checked' : ''}> Acceso universal confirmado</label>
+        <label class="check"><input type="checkbox" name="sensory" ${event.sensory ? 'checked' : ''}> Condiciones neuroamigables confirmadas</label>
+      </div>
+      <div class="fields">
+        <label>Latitud (opcional) <input name="latitude" type="number" min="-90" max="90" step="any" value="${event.latitude ?? ''}"></label>
+        <label>Longitud (opcional) <input name="longitude" type="number" min="-180" max="180" step="any" value="${event.longitude ?? ''}"></label>
+      </div>
       <label>Foto opcional · JPEG, PNG o WebP, hasta 3 MB
         <input name="photo" type="file" accept="image/jpeg,image/png,image/webp">
       </label>
@@ -429,6 +381,10 @@ function openEditor(event) {
     body.starts = isoDate(body.starts);
     body.ends = isoDate(body.ends);
     body.capacity = Number(body.capacity);
+    body.latitude = body.latitude === '' ? null : Number(body.latitude);
+    body.longitude = body.longitude === '' ? null : Number(body.longitude);
+    body.wheelchair = body.wheelchair === 'on';
+    body.sensory = body.sensory === 'on';
     if (photo?.size) body.photo = await asDataUrl(photo);
     if (remove_photo) body.remove_photo = true;
     const url = '/api/coordinator/events' + (event ? '/' + event.id + '/edit' : '');
@@ -462,10 +418,17 @@ async function renderRoster(event) {
 
 async function renderCoordinator(selected) {
   const { events } = await api('/api/coordinator');
-  app.innerHTML = `<p class="eyebrow">Cuenta de coordinación</p><h1>Panel de Coordinación</h1>
+  app.innerHTML = `<header class="editorial-heading">
+    <p class="eyebrow">Modo Coordinador</p><h1>Gestión Comunitaria de Talleres</h1>
     <p class="lede">${escapeHtml(actor.name)} · Gestiona tus actividades, inscripciones y asistencias.</p>
-    <div class="actions"><button id="logout" class="secondary">Cerrar sesión</button></div>
-    <section class="panel"><h2>Mis actividades</h2>
+    <div class="actions"><button id="logout" class="secondary">Cerrar sesión</button></div></header>
+    <nav class="staff-tabs" aria-label="Panel de coordinación">
+      <button id="tab-roster" class="secondary">Registro de asistencia</button>
+      <button id="tab-publish" class="secondary">+ Publicar nueva actividad</button>
+      <button id="tab-own" class="secondary">Mis actividades publicadas</button>
+      <button id="tab-metrics" class="secondary">Métricas de registro</button>
+    </nav>
+    <section class="panel" id="own-events"><h2>Mis actividades</h2>
       ${table(['Actividad', 'Confirmadas', 'En espera', 'Asistencias', 'Gestión'], events.map((event, index) => [
         '<a href="' + eventUrl(event.id) + '">' + escapeHtml(event.title) + '</a><br>' +
           escapeHtml(date(event.starts)) + ' · ' + status(event.status),
@@ -478,18 +441,47 @@ async function renderCoordinator(selected) {
       ]), 'Todavía no has publicado actividades.')}
     </section>
     <section class="panel" id="roster" hidden></section>
-    <div id="editor"></div>
+    <div id="editor" hidden></div>
+    <section class="panel" id="registration-metrics" hidden><h2>Métricas de registro</h2>
+      ${table(['Actividad', 'Confirmadas', 'En espera', 'Asistencias'], events.map(event => [
+        escapeHtml(event.title), String(event.booked), String(event.waiting), String(event.attended)
+      ]), 'Todavía no hay actividades.')}</section>
     ${passwordSection()}
   `;
   connectStaff('coordinator');
   openEditor();
+  const show = (tab, panel) => {
+    for (const [id, element] of [['tab-roster', 'roster'], ['tab-publish', 'editor'], ['tab-own', 'own-events'], ['tab-metrics', 'registration-metrics']]) {
+      document.getElementById(element).hidden = element !== panel;
+      document.getElementById(id).setAttribute('aria-pressed', String(id === tab));
+    }
+  };
+  onClick('tab-own', () => show('tab-own', 'own-events'));
+  onClick('tab-publish', () => { openEditor(); show('tab-publish', 'editor'); });
+  onClick('tab-metrics', () => show('tab-metrics', 'registration-metrics'));
+  onClick('tab-roster', () => {
+    show('tab-roster', 'roster');
+    const panel = document.getElementById('roster');
+    panel.innerHTML = '<h2>Registro de asistencia</h2><p>Selecciona la actividad.</p><div class="actions" id="roster-choices"></div>';
+    for (const event of events) {
+      const button = document.createElement('button');
+      button.className = 'secondary';
+      button.textContent = event.title;
+      button.addEventListener('click', () => renderRoster(event).catch(error => notify(error.message, true)));
+      document.getElementById('roster-choices').append(button);
+    }
+    if (!events.length) panel.querySelector('p').textContent = 'Todavía no has publicado actividades.';
+  });
+  show('tab-own', 'own-events');
   for (const [index, event] of events.entries()) {
     onClick('roster-' + index, async () => {
+      show('tab-roster', 'roster');
       await renderRoster(event);
       document.getElementById('roster').scrollIntoView({ block: 'start' });
     });
     onClick('edit-' + index, () => {
       openEditor(event);
+      show('tab-publish', 'editor');
       document.getElementById('editor').scrollIntoView({ block: 'start' });
     });
     onClick('cancel-' + index, async () => {
@@ -500,7 +492,10 @@ async function renderCoordinator(selected) {
     });
   }
   const event = events.find(item => item.id === selected);
-  if (event) await renderRoster(event);
+  if (event) {
+    show('tab-roster', 'roster');
+    await renderRoster(event);
+  }
 }
 
 function actionName(action) {
@@ -521,13 +516,14 @@ async function renderCEO(search = '') {
     ? new Intl.NumberFormat('es-CL', { style: 'percent', maximumFractionDigits: 1 }).format(counts.finished_attendance / counts.finished_bookings)
     : 'Sin reservas finalizadas';
   const metrics = [
-    ['Vecinos verificados', counts.neighbors], ['Actividades publicadas', counts.events],
+    ['Vecinos registrados', counts.neighbors], ['Actividades publicadas', counts.events],
     ['Reservas confirmadas', counts.confirmed], ['Inscripciones en espera', counts.waiting],
     ['Asistencias registradas', counts.attended], ['Asistencia en actividades terminadas', percent]
   ];
-  app.innerHTML = `<p class="eyebrow">Administración · ChispaPlay</p><h1>Panel CEO</h1>
+  app.innerHTML = `<header class="editorial-heading"><p class="eyebrow">Panel CEO · Confidencial</p>
+    <h1>Inteligencia Territorial de Demanda</h1>
     <p class="lede">${escapeHtml(actor.name)} · Operación, cuentas y auditoría.</p>
-    <div class="actions"><button id="logout" class="secondary">Cerrar sesión</button></div>
+    <div class="actions"><button id="logout" class="secondary">Cerrar sesión</button></div></header>
     <section class="panel"><h2>Métricas generales</h2>
       <dl class="facts">${metrics.map(([key, value]) => '<div><dt>' + key + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('')}</dl>
       <p class="muted">La tasa usa reservas confirmadas de actividades terminadas y excluye las canceladas.</p>
@@ -538,7 +534,7 @@ async function renderCEO(search = '') {
         escapeHtml(actionName(item.action)), String(item.total), String(item.people)
       ]), 'Todavía no hay acciones de navegación registradas.')}
     </section>
-    <section class="panel"><h2>Vecinos verificados</h2>
+    <section class="panel"><h2>Vecinos registrados</h2>
       <form id="find-neighbor" class="filters">
         <label>Buscar por nombre o teléfono <input name="search" type="search" maxlength="100" value="${escapeHtml(search)}"></label>
         <button type="submit" class="secondary">Buscar</button>
@@ -649,22 +645,21 @@ async function renderCEO(search = '') {
 
 async function start() {
   try {
+    renderNavigation(page, actor);
     ({ actor } = await api('/api/session'));
-    if (page === 'home' || page === 'catalog') await renderCatalog(page === 'home');
+    if (actor) renderNavigation(page, actor);
+    if (page === 'home' || page === 'catalog') {
+      const { events } = await api('/api/events');
+      renderDiscovery(page, events, track);
+    }
     if (page === 'event') await renderEvent(query.get('id'));
     if (page === 'profile') await renderProfile();
     if (page === 'coordinator' || page === 'ceo') await renderStaff(page);
-    if (page === 'about') {
-      app.innerHTML = `<h1>Acerca de ChispaPlay</h1>
-        <section class="panel narrow"><p>ChispaPlay reúne actividades comunitarias publicadas por coordinadores autorizados. Puedes explorar la cartelera, consultar las condiciones de cada actividad y reservar con tu celular.</p>
-          <p>El nombre y el teléfono se usan para identificar la cuenta y sus inscripciones. El proveedor de SMS recibe el teléfono para verificarlo. Puedes gestionar el seguimiento opcional desde Mi Pase.</p>
-          <a class="button" href="/actividades.html">Explorar cartelera</a></section>`;
-    }
   } catch (error) {
-    app.innerHTML = '<h1>No pudimos cargar esta página</h1><a href="/actividades.html">Volver a la cartelera</a>';
+    if (app) app.innerHTML = '<h1>No pudimos cargar esta página</h1><a href="/actividades.html">Volver a la cartelera</a>';
     notify(error.message, true);
   } finally {
-    app.removeAttribute('aria-busy');
+    app?.removeAttribute('aria-busy');
   }
 }
 

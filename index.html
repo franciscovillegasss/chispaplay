@@ -1,40 +1,205 @@
 <!doctype html>
-<html lang="es-CL">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Actividades comunitarias, reservas y Pase Vecinal de ChispaPlay.">
-  <title>Encuentra actividades en tu barrio · ChispaPlay</title>
-  <link rel="stylesheet" href="/css/global.css">
-  <script type="module" src="/js/app.js"></script>
-</head>
-<body data-page="home">
-  <a class="skip" href="#main">Saltar al contenido</a>
-  <header class="site-header">
-    <div class="wrap nav">
-      <a class="brand" href="/">Chispa<span>Play</span></a>
-      <nav aria-label="Principal">
-        <a href="/actividades.html">Cartelera</a>
-        <a href="/perfil.html">Mi Pase</a>
-      </nav>
-    </div>
-  </header>
-  <main class="wrap main" id="main">
+<!-- ARCHIVO: index.html (Página Principal · Portada Revista con Revelación Progresiva) -->
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChispaPlay Maipú | Talleres y Actividades Familiares Gratuitas a 15 min</title>
+    <meta name="description" content="Cartelera oficial de talleres y actividades familiares 100% gratuitas a menos de 15 minutos de tu casa en Maipú y Valparaíso." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23E11D48'/%3E%3Ctext x='50' y='65' font-family='monospace' font-size='50' font-weight='900' fill='white' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E" />
+
+    <!-- Open Graph / WhatsApp Social Share -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" id="og-title-meta" content="ChispaPlay | Talleres y Actividades Familiares Gratuitas a 15 min" />
+    <meta property="og:description" id="og-desc-meta" content="Cartelera oficial de talleres y actividades familiares 100% gratuitas a menos de 15 minutos de tu casa en Maipú y Valparaíso." />
+    <meta property="og:site_name" content="ChispaPlay" />
+    <meta property="og:locale" content="es_CL" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ChispaPlay | Talleres Barriales a 15 min" />
+    <meta name="twitter:description" content="Talleres y actividades comunitarias gratuitas a 15 minutos de tu casa." />
+
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json" id="schema-website-jsonld">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "ChispaPlay",
+      "applicationCategory": "CommunityApplication",
+      "operatingSystem": "All",
+      "description": "Cartelera de talleres y actividades familiares gratuitas en tu comuna.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "CLP"
+      }
+    }
+    </script>
+    <script type="application/ld+json" id="schema-events-jsonld"></script>
+    <link rel="stylesheet" href="/css/editorial.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+  </head>
+  <body data-page="home" class="bg-[#F8F8F6] text-[#111111] antialiased font-sans">
+
+    <!-- Navbar Reutilizable -->
+    <header id="navbar-container"></header>
     <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
-    <div id="app" aria-busy="true">
-      <h1>Encuentra actividades en tu barrio</h1>
-      <p>Cargando…</p>
-    </div>
-    <noscript>Activa JavaScript para usar ChispaPlay.</noscript>
-  </main>
-  <footer class="site-footer">
-    <div class="wrap nav">
-      <a href="/nosotros.html">Acerca de ChispaPlay</a>
-      <nav aria-label="Equipo">
-        <a href="/coordinador.html">Coordinación</a>
-        <a href="/ceo.html">Acceso CEO</a>
-      </nav>
-    </div>
-  </footer>
-</body>
+
+    <!-- CONTENEDOR DEDICADO DE ACTIVIDAD (REEMPLAZA ACORDEÓN CON VISTA COMPLETA EDITORIAL) -->
+    <section id="dedicated-activity-container" class="hidden min-h-[calc(100vh-140px)]"></section>
+
+    <!-- LIENZO PRINCIPAL ROJO (PORTADA DE REVISTA INTERACTIVA CON REVELACIÓN PROGRESIVA) -->
+    <section
+      id="hero-interactive-canvas"
+      class="bg-[#E11D48] text-white min-h-[calc(100vh-80px)] flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-10 transition-all duration-500 ease-out"
+    >
+      <div class="max-w-4xl w-full flex flex-col items-center text-center transition-all duration-500">
+
+        <!-- PASO 1: TITULAR GIGANTE EN BLANCO -->
+        <div
+          id="hero-step1-container"
+          class="transition-all duration-500 ease-out flex flex-wrap items-center justify-center gap-3 sm:gap-4 my-auto"
+        >
+          <h1 class="text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-tight text-white leading-none whitespace-nowrap">
+            ¿QUÉ HACEMOS EN
+          </h1>
+
+          <!-- Recuadro Blanco de Selección Maipú | Valparaíso -->
+          <div class="inline-flex items-center gap-2 bg-white p-1.5 sm:p-2 border-4 border-black shadow-[6px_6px_0px_0px_#111111]">
+            <button
+              type="button"
+              id="btn-select-maipu"
+              data-commune="maipu"
+              class="btn-commune-choice px-4 sm:px-6 py-2 sm:py-2.5 font-black uppercase text-base sm:text-xl tracking-wider transition-all cursor-pointer bg-neutral-100 text-neutral-800 hover:bg-black hover:text-white"
+            >
+              MAIPÚ
+            </button>
+            <button
+              type="button"
+              id="btn-select-valpo"
+              data-commune="valparaiso"
+              class="btn-commune-choice px-4 sm:px-6 py-2 sm:py-2.5 font-black uppercase text-base sm:text-xl tracking-wider transition-all cursor-pointer bg-neutral-100 text-neutral-800 hover:bg-black hover:text-white"
+            >
+              VALPARAÍSO
+            </button>
+          </div>
+
+          <span class="text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-tight text-white leading-none">
+            ?
+          </span>
+        </div>
+
+        <!-- PROPUESTA DE VALOR CLARA (ABOVE THE FOLD - PRIMEROS 3 SEGUNDOS) -->
+        <p class="mt-4 sm:mt-6 text-sm sm:text-base md:text-lg font-bold text-white max-w-2xl mx-auto leading-relaxed drop-shadow-sm font-sans tracking-wide">
+          Cartelera de talleres y actividades familiares gratuitas en tu comuna.
+        </p>
+
+        <!-- PASO 2: CAJA BLANCA (ELIGE TU SECTOR DE REFERENCIA) - Inicialmente oculta -->
+        <div
+          id="hero-step2-container"
+          class="hidden w-full max-w-2xl bg-white text-black border-4 border-black p-5 sm:p-6 shadow-[8px_8px_0px_0px_#111111] mt-6 text-left animate-slide-up"
+        >
+          <div class="flex items-center justify-between border-b-2 border-neutral-200 pb-2 mb-4">
+            <span class="text-xs font-mono font-black uppercase text-[#E11D48] tracking-wider">
+              PASO 2 · ELIGE TU SECTOR DE REFERENCIA
+            </span>
+            <span id="step2-commune-label" class="text-xs font-mono font-bold uppercase text-neutral-500"></span>
+          </div>
+
+          <!-- Cuadrícula interactiva de sectores -->
+          <div id="step2-sectors-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <!-- Inyectado por js/index.js -->
+          </div>
+        </div>
+
+        <!-- PASO 3: TEMPORALIDAD (1. HOY, 2. ESTA SEMANA, 3. ESTE MES) - Inicialmente oculta -->
+        <div
+          id="hero-step3-container"
+          class="hidden w-full max-w-2xl bg-black text-white border-4 border-white p-5 sm:p-6 shadow-[8px_8px_0px_0px_#FFFFFF] mt-6 text-left animate-slide-up"
+        >
+          <div class="flex items-center justify-between border-b border-neutral-800 pb-2 mb-4">
+            <span class="text-xs font-mono font-black uppercase tracking-wider text-neutral-300">
+              PASO 3 · SELECCIONA TEMPORALIDAD:
+            </span>
+            <span id="step3-ref-label" class="text-xs font-mono text-[#E11D48] font-bold"></span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              type="button"
+              data-timeframe="hoy"
+              class="btn-step3-timeframe py-4 px-3 text-center font-black uppercase tracking-wider border-2 border-neutral-600 hover:border-white bg-neutral-900 text-white transition-all cursor-pointer"
+            >
+              <div class="text-base sm:text-lg">1. HOY</div>
+              <div class="text-[11px] font-mono text-neutral-400 font-normal">Talleres en curso</div>
+            </button>
+
+            <button
+              type="button"
+              data-timeframe="semana"
+              class="btn-step3-timeframe py-4 px-3 text-center font-black uppercase tracking-wider border-2 border-neutral-600 hover:border-white bg-neutral-900 text-white transition-all cursor-pointer"
+            >
+              <div class="text-base sm:text-lg">2. ESTA SEMANA</div>
+              <div class="text-[11px] font-mono text-neutral-400 font-normal">Próximos siete días</div>
+            </button>
+
+            <button
+              type="button"
+              data-timeframe="mes"
+              class="btn-step3-timeframe py-4 px-3 text-center font-black uppercase tracking-wider border-2 border-neutral-600 hover:border-white bg-neutral-900 text-white transition-all cursor-pointer"
+            >
+              <div class="text-base sm:text-lg">3. ESTE MES</div>
+              <div class="text-[11px] font-mono text-neutral-400 font-normal">Próximos treinta días</div>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- GRILLA BLANCA INFERIOR CON RANKING EDITORIAL (REVELADA EN PASO 3 CON AUTO-SCROLL) -->
+    <main id="ranking-section" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 scroll-mt-6 animate-slide-up">
+
+      <div class="mb-8 pb-3 border-b-2 border-black flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-wider font-bold text-[#E11D48] mb-1">
+            CURADURÍA EDITORIAL
+          </div>
+          <h2 id="ranking-headline" class="text-2xl sm:text-3xl font-black uppercase tracking-tight text-neutral-900 leading-tight">
+            Ranking de Actividades
+          </h2>
+        </div>
+        <div class="flex items-center gap-4 text-xs font-mono font-bold">
+          <span id="ranking-count-label" class="text-neutral-600">0 actividades</span>
+          <a href="actividades.html" class="text-black hover:text-[#E11D48] underline uppercase">
+            Ver Cartelera Completa →
+          </a>
+        </div>
+      </div>
+
+      <!-- Contenedor del Ranking -->
+      <div id="ranking-list-container" class="space-y-6 mb-10">
+        <!-- Tarjetas inyectadas dinámicamente con clase .ranking-card -->
+      </div>
+
+    </main>
+
+    <!-- Footer Compartido con holgura pb-24 en móvil -->
+    <footer class="bg-white border-t-2 border-black py-8 px-4 text-center pb-24 md:pb-8 mt-12">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-neutral-600">
+        <div>
+          <strong class="text-black uppercase">ChispaPlay</strong> · Ingeniería Civil Industrial · U. de Chile
+        </div>
+        <div class="flex flex-wrap items-center justify-center gap-4 font-bold">
+          <a href="index.html" class="hover:text-black font-black text-black">Inicio</a>
+          <a href="actividades.html" class="hover:text-black">Cartelera</a>
+          <a href="nosotros.html" class="hover:text-black">Quiénes Somos</a>
+          <a href="perfil.html" class="hover:text-black">Pase Vecinal</a>
+          <a href="coordinador.html" class="hover:text-black">Coordinadores (JJVV)</a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Scripts Modulares -->
+    <script type="module" src="/js/app.js"></script>
+  </body>
 </html>

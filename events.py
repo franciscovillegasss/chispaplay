@@ -98,7 +98,14 @@ def save(db, actor, body, event=None):
     current = now()
     if start <= current or end <= start or end - start > 7 * 86400:
         raise APIError(400, "Indica un inicio futuro y un término posterior, con una duración máxima de siete días.")
-    data.update(starts=start, ends=end, capacity=capacity)
+    latitude, longitude = body.get("latitude"), body.get("longitude")
+    if latitude is not None or longitude is not None:
+        if type(latitude) not in (int, float) or type(longitude) not in (int, float):
+            raise APIError(400, "Completa ambas coordenadas del lugar.")
+        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+            raise APIError(400, "Revisa el rango de las coordenadas.")
+    data.update(starts=start, ends=end, capacity=capacity, latitude=latitude, longitude=longitude,
+                wheelchair=int(body.get("wheelchair") is True), sensory=int(body.get("sensory") is True))
     photo = photo_data(body["photo"]) if "photo" in body else None
     if event:
         if event["status"] != "published" or event["starts"] <= current:

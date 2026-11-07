@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS neighbors (
  id TEXT PRIMARY KEY, phone TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
- personal_code TEXT NOT NULL UNIQUE, tracking INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL
+ personal_code TEXT NOT NULL UNIQUE, tracking INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, password_hash TEXT
 );
 CREATE TABLE IF NOT EXISTS staff (
  id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, name TEXT NOT NULL,
@@ -11,10 +11,6 @@ CREATE TABLE IF NOT EXISTS sessions (
  digest TEXT PRIMARY KEY, actor_id TEXT NOT NULL, role TEXT NOT NULL, expires INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS session_actor ON sessions(actor_id);
-CREATE TABLE IF NOT EXISTS sms_requests (
- id TEXT PRIMARY KEY, phone TEXT NOT NULL, provider_id TEXT NOT NULL, expires INTEGER NOT NULL,
- attempts INTEGER NOT NULL DEFAULT 0, checking INTEGER NOT NULL DEFAULT 0
-);
 CREATE TABLE IF NOT EXISTS rate_limits (bucket TEXT NOT NULL, created INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS rate_bucket ON rate_limits(bucket,created);
 CREATE TABLE IF NOT EXISTS events (
@@ -22,6 +18,7 @@ CREATE TABLE IF NOT EXISTS events (
  description TEXT NOT NULL, commune TEXT NOT NULL, sector TEXT NOT NULL, venue TEXT NOT NULL,
  address TEXT NOT NULL, category TEXT NOT NULL, ages TEXT NOT NULL, accessibility TEXT NOT NULL,
  starts INTEGER NOT NULL, ends INTEGER NOT NULL, capacity INTEGER NOT NULL CHECK(capacity>0),
+ wheelchair INTEGER NOT NULL DEFAULT 0, sensory INTEGER NOT NULL DEFAULT 0, latitude REAL, longitude REAL,
  status TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('published','cancelled')),
  created INTEGER NOT NULL
 );

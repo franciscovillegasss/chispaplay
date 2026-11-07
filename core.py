@@ -42,6 +42,15 @@ def init_db():
     with database() as db:
         db.execute("PRAGMA journal_mode=WAL")
         db.executescript((ROOT / "schema.sql").read_text(encoding="utf-8-sig"))
+        db.execute("BEGIN IMMEDIATE")
+        columns = {column["name"] for column in db.execute("PRAGMA table_info(neighbors)")}
+        if "password_hash" not in columns:
+            db.execute("ALTER TABLE neighbors ADD COLUMN password_hash TEXT")
+        event_columns = {column["name"] for column in db.execute("PRAGMA table_info(events)")}
+        for name, definition in (("wheelchair", "INTEGER NOT NULL DEFAULT 0"), ("sensory", "INTEGER NOT NULL DEFAULT 0"),
+                                 ("latitude", "REAL"), ("longitude", "REAL")):
+            if name not in event_columns:
+                db.execute(f"ALTER TABLE events ADD COLUMN {name} {definition}")
 
 
 def field(body, key, label, maximum=150, minimum=1):
@@ -80,5 +89,4 @@ def prune():
     with database(write=True) as db:
         db.execute("DELETE FROM rate_limits WHERE created<?", (current - 3600,))
         db.execute("DELETE FROM sessions WHERE expires<=?", (current,))
-        db.execute("DELETE FROM sms_requests WHERE expires<=?", (current,))
         db.execute("DELETE FROM traffic WHERE created<?", (current - TRAFFIC_DAYS * 86400,))

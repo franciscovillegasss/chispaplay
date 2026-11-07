@@ -26,7 +26,7 @@ LOCAL_HTTP = HOST in ("127.0.0.1", "localhost") and not ORIGIN
 COOKIE = "chispa_session" if LOCAL_HTTP else "__Host-chispa_session"
 MAX_BODY = 4 * ((events.MAX_IMAGE + 2) // 3) + 16_384
 PAGES = {"index.html", "actividades.html", "actividad.html", "perfil.html", "nosotros.html", "coordinador.html", "ceo.html"}
-ASSETS = {"css/global.css", "js/app.js"}
+ASSETS = {"css/global.css", "css/editorial.css", "js/app.js", "js/editorial.js"}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -46,7 +46,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
         self.send_header("Content-Security-Policy", "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:")
-        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)")
         if not LOCAL_HTTP:
             self.send_header("Strict-Transport-Security", "max-age=31536000")
         if cookie is not None:
@@ -193,10 +193,10 @@ class Handler(BaseHTTPRequestHandler):
         raise APIError(404, "Ruta no encontrada.")
 
     def post(self, path, body, token):
-        if path == "/api/sms/start":
-            return auth.send_sms(body, self.client_ip()), None
-        if path == "/api/sms/check":
-            return auth.confirm_sms(body, token)
+        if path == "/api/neighbors/register":
+            return auth.register_neighbor(body, self.client_ip(), token)
+        if path == "/api/neighbors/login":
+            return auth.login_neighbor(body, self.client_ip(), token)
         if path == "/api/staff/login":
             return auth.login_staff(body, self.client_ip(), token)
         if path == "/api/staff/password":

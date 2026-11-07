@@ -1,16 +1,13 @@
-"""Role enforcement, password hashing, SMS challenges and server-side sessions."""
+"""Role enforcement, password hashing and server-side sessions."""
 
 import hashlib
 import hmac
-import os
 import re
 import secrets
 
-import sms
 from core import APIError, audit, database, field, now, rate_limit
 
 PASSWORD_ITERATIONS = 600_000
-SMS_HOURLY_LIMIT = int(os.environ.get("CHISPA_SMS_HOURLY_LIMIT", "100"))
 
 
 def phone_number(value):
@@ -102,63 +99,41 @@ def public_actor(actor):
     return {key: actor[key] for key in fields}
 
 
-def send_sms(body, ip):
+def register_neighbor(body, ip, previous):
     phone = phone_number(body.get("phone"))
-    rate_limit(("sms-global", SMS_HOURLY_LIMIT, 3600), (f"sms-ip:{ip}", 12, 900),
-               (f"sms-phone:{phone}", 3, 900), (f"sms-phone:{phone}", 1, 60))
-    try:
-        provider_id = sms.start(phone)
-    except sms.Rejected:
-        raise APIError(429, "No se pudo enviar el SMS. Verifica el número e inténtalo más tarde.") from None
-    except sms.Unavailable:
-        raise APIError(503, "El envío de SMS no está disponible en este momento.") from None
-    challenge = secrets.token_urlsafe(24)
-    with database(write=True) as db:
-        db.execute("DELETE FROM sms_requests WHERE expires<=? OR (phone=? AND checking=0)", (now(), phone))
-        db.execute("INSERT INTO sms_requests(id,phone,provider_id,expires) VALUES (?,?,?,?)",
-                   (challenge, phone, provider_id, now() + 600))
-    return {"challenge": challenge}
-
-
-def confirm_sms(body, previous):
-    challenge = field(body, "challenge", "la solicitud de verificación", 48)
-    code = field(body, "code", "el código SMS", 10)
     name = field(body, "name", "el nombre", 100, 2)
-    if not re.fullmatch(r"[0-9]{4,10}", code):
-        raise APIError(400, "Ingresa el código numérico recibido por SMS.")
+    password = validate_password(body.get("password"))
+    if body.get("website"):
+        raise APIError(400, "No se pudo registrar la cuenta.")
+    rate_limit((f"neighbor-register:{ip}", 8, 3600))
+    encoded = password_hash(password)
     with database(write=True) as db:
-        row = db.execute("SELECT * FROM sms_requests WHERE id=? AND expires>?", (challenge, now())).fetchone()
-        if not row or row["attempts"] >= 5:
-            raise APIError(400, "Solicita un código SMS nuevo.")
-        if row["checking"]:
-            raise APIError(409, "Ya estamos verificando este código.")
-        db.execute("UPDATE sms_requests SET checking=1, attempts=attempts+1 WHERE id=?", (challenge,))
-    try:
-        approved = sms.check(row["provider_id"], row["phone"], code)
-    except sms.Rejected:
-        approved = False
-    except sms.Unavailable:
-        with database(write=True) as db:
-            db.execute("UPDATE sms_requests SET checking=0, attempts=attempts-1 WHERE id=?", (challenge,))
-        raise APIError(503, "No se pudo verificar el SMS. Intenta nuevamente.") from None
+        if db.execute("SELECT 1 FROM neighbors WHERE phone=?", (phone,)).fetchone():
+            raise APIError(409, "Ya existe una cuenta para este número. Inicia sesión.")
+        actor_id = secrets.token_hex(16)
+        code = "CP-" + secrets.token_hex(6).upper()
+        db.execute("""INSERT INTO neighbors(id,phone,name,personal_code,created,password_hash)
+            VALUES (?,?,?,?,?,?)""", (actor_id, phone, name, code, now(), encoded))
+        actor = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE id=?", (actor_id,)).fetchone()
+        audit(db, actor, "vecino_registrado")
+        cookie = session(db, actor, previous)
+    return {"actor": public_actor(actor)}, cookie
+
+
+def login_neighbor(body, ip, previous):
+    phone = phone_number(body.get("phone"))
+    password = body.get("password")
+    if not isinstance(password, str) or not 1 <= len(password) <= 128:
+        raise APIError(400, "Ingresa celular y contraseña.")
+    rate_limit((f"neighbor-login-ip:{ip}", 30, 900), (f"neighbor-login-phone:{phone}", 10, 900))
+    with database() as db:
+        actor = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE phone=?", (phone,)).fetchone()
+    encoded = actor["password_hash"] if actor else None
+    if not verify_password(password, encoded or DUMMY_HASH) or not encoded:
+        raise APIError(401, "Celular o contraseña incorrectos.")
     with database(write=True) as db:
-        if not approved:
-            db.execute("UPDATE sms_requests SET checking=0 WHERE id=?", (challenge,))
-        else:
-            if not db.execute("DELETE FROM sms_requests WHERE id=? AND expires>?", (challenge, now())).rowcount:
-                raise APIError(400, "Solicita un código SMS nuevo.")
-            actor = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE phone=?", (row["phone"],)).fetchone()
-            if not actor:
-                user_id = secrets.token_hex(16)
-                personal_code = "CP-" + secrets.token_hex(6).upper()
-                db.execute("INSERT INTO neighbors(id,phone,name,personal_code,created) VALUES (?,?,?,?,?)",
-                           (user_id, row["phone"], name, personal_code, now()))
-                actor = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE id=?", (user_id,)).fetchone()
-                audit(db, actor, "vecino_registrado")
-            audit(db, actor, "sesion_vecinal_iniciada")
-            cookie = session(db, actor, previous)
-    if not approved:
-        raise APIError(400, "Código incorrecto o vencido.")
+        audit(db, actor, "sesion_vecinal_iniciada")
+        cookie = session(db, actor, previous)
     return {"actor": public_actor(actor)}, cookie
 
 
