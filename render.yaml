@@ -2,12 +2,25 @@ services:
   - type: web
     name: chispaplay
     runtime: python
-    buildCommand: ""
+    plan: starter
+    buildCommand: python -m compileall -q server.py auth.py core.py events.py management.py sms.py
     startCommand: python server.py
-    plan: free
-    autoDeploy: true
+    healthCheckPath: /api/health
+    autoDeployTrigger: "off"
+    disk:
+      name: chispaplay-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
-      - key: PORT
-        value: 10000
-      - key: CHISPA_CEO_KEY
-        value: CHISPA-CEO-2026
+      - key: HOST
+        value: 0.0.0.0
+      - key: CHISPA_DATA_DIR
+        value: /var/data
+      - key: CHISPA_PUBLIC_ORIGIN
+        sync: false
+      - key: TWILIO_API_KEY
+        sync: false
+      - key: TWILIO_API_SECRET
+        sync: false
+      - key: TWILIO_VERIFY_SERVICE_SID
+        sync: false
