@@ -6,7 +6,7 @@ import re
 import secrets
 import sqlite3
 
-from core import APIError, audit, database, field, now, rate_limit, personal_code
+from core import APIError, audit, database, field, identifier, now, rate_limit, personal_code
 
 PASSWORD_ITERATIONS = 600_000
 
@@ -64,10 +64,13 @@ def revoke(db, token):
         db.execute("DELETE FROM sessions WHERE digest=?", (digest(token),))
 
 
-def session(db, actor, previous=None):
+def session(db, actor, previous=None, remember=False):
     revoke(db, previous)
     token = secrets.token_urlsafe(32)
-    lifetime = 30 * 86400 if actor["role"] == "neighbor" else 8 * 3600
+    if actor["role"] == "neighbor":
+        lifetime = (90 if remember else 30) * 86400
+    else:
+        lifetime = 7 * 86400 if remember and actor["role"] == "coordinator" and not actor["must_change"] else 8 * 3600
     db.execute("DELETE FROM sessions WHERE expires<=?", (now(),))
     db.execute("INSERT INTO sessions VALUES (?,?,?,?)", (digest(token), actor["id"], actor["role"], now() + lifetime))
     return token, lifetime
@@ -119,7 +122,7 @@ def register_neighbor(body, ip, previous):
             VALUES (?,?,?,?,?,?,1)""", (actor_id, phone, name, code, now(), encoded))
         actor = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE id=?", (actor_id,)).fetchone()
         audit(db, actor, "vecino_registrado")
-        cookie = session(db, actor, previous)
+        cookie = session(db, actor, previous, body.get("remember") == "on")
     return {"actor": public_actor(actor)}, cookie
 
 
@@ -135,27 +138,46 @@ def login_neighbor(body, ip, previous):
     if not verify_password(password, encoded or DUMMY_HASH) or not encoded:
         raise APIError(401, "Celular o contraseña incorrectos.")
     with database(write=True) as db:
-        audit(db, actor, "sesion_vecinal_iniciada")
-        cookie = session(db, actor, previous)
-    return {"actor": public_actor(actor)}, cookie
+        current = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE id=?", (actor["id"],)).fetchone()
+        if not current or current["password_hash"] != encoded:
+            raise APIError(401, "Vuelve a iniciar sesión.")
+        audit(db, current, "sesion_vecinal_iniciada")
+        cookie = session(db, current, previous, body.get("remember") == "on")
+    return {"actor": public_actor(current)}, cookie
+
+
+def find_coordinator(db, account, by_username=False):
+    if not by_username:
+        try:
+            phone = phone_number(account)
+        except APIError:
+            pass
+        else:
+            rows = db.execute("SELECT * FROM staff WHERE phone=? AND role='coordinator' LIMIT 2", (phone,)).fetchall()
+            if rows:
+                return rows[0] if len(rows) == 1 else None
+    return db.execute("SELECT * FROM staff WHERE username=? AND role='coordinator'", (account.lower(),)).fetchone()
 
 
 def login_staff(body, ip, previous):
-    username = username_for(body.get("username"))
+    legacy = "account" not in body
+    account = field(body, "username" if legacy else "account", "el usuario o celular", 64)
     password = body.get("password")
     role = body.get("role")
     if role != "coordinator" or not isinstance(password, str) or not 1 <= len(password) <= 128:
         raise APIError(400, "Ingresa usuario y contraseña.")
-    rate_limit((f"staff-ip:{ip}", 25, 900), (f"staff-user:{username}", 8, 900))
+    rate_limit((f"staff-ip:{ip}", 25, 900))
     with database() as db:
-        actor = db.execute("SELECT * FROM staff WHERE username=? AND role=?", (username, role)).fetchone()
+        actor = find_coordinator(db, account, by_username=legacy)
+    account_key = actor["username"] if actor else account.lower()
+    rate_limit((f"staff-user:{account_key}", 8, 900))
     if not verify_password(password, actor["password_hash"] if actor else DUMMY_HASH) or not actor or not actor["active"]:
         raise APIError(401, "Usuario o contraseña incorrectos.")
     with database(write=True) as db:
         active = db.execute("SELECT * FROM staff WHERE id=? AND active=1", (actor["id"],)).fetchone()
-        if not active or active["password_hash"] != actor["password_hash"]:
+        if not active or active["password_hash"] != actor["password_hash"] or active["phone"] != actor["phone"]:
             raise APIError(401, "Vuelve a iniciar sesión.")
-        cookie = session(db, active, previous)
+        cookie = session(db, active, previous, body.get("remember") == "on")
         audit(db, active, "sesion_equipo_iniciada")
     return {"actor": public_actor(active)}, cookie
 
@@ -177,10 +199,86 @@ def change_password(body, token):
                           (encoded, actor["id"], actor["password_hash"])).rowcount:
             raise APIError(409, "La contraseña cambió. Inicia sesión nuevamente.")
         db.execute("DELETE FROM sessions WHERE actor_id=?", (actor["id"],))
+        db.execute("DELETE FROM recovery_codes WHERE actor_id=?", (actor["id"],))
         actor = db.execute("SELECT * FROM staff WHERE id=?", (actor["id"],)).fetchone()
         cookie = session(db, actor)
         audit(db, actor, "contrasena_actualizada")
     return {"actor": public_actor(actor)}, cookie
+
+
+def save_recovery_code(db, actor_id, expires=0):
+    code = secrets.token_hex(12).upper()
+    db.execute("""INSERT INTO recovery_codes(actor_id,digest,expires) VALUES (?,?,?)
+        ON CONFLICT(actor_id) DO UPDATE SET digest=excluded.digest,expires=excluded.expires""",
+        (actor_id, digest(code), expires))
+    return "-".join(code[i:i + 6] for i in range(0, 24, 6))
+
+
+def issue_recovery_code(body, token):
+    password = body.get("password")
+    if not isinstance(password, str) or not 1 <= len(password) <= 128:
+        raise APIError(400, "Ingresa tu contraseña actual.")
+    with database() as db:
+        actor = actor_for(db, token, "neighbor", "coordinator")
+    rate_limit((f"recovery-issue:{actor['id']}", 8, 3600))
+    if not verify_password(password, actor["password_hash"] or DUMMY_HASH) or not actor["password_hash"]:
+        raise APIError(401, "La contraseña actual es incorrecta.")
+    with database(write=True) as db:
+        current = actor_for(db, token, "neighbor", "coordinator")
+        if current["password_hash"] != actor["password_hash"]:
+            raise APIError(409, "La contraseña cambió. Inicia sesión nuevamente.")
+        code = save_recovery_code(db, current["id"])
+        audit(db, current, "codigo_recuperacion_generado")
+    return {"code": code}
+
+
+def issue_assisted_recovery(db, actor, body):
+    neighbor = identifier(body.get("neighbor"), "la cuenta vecinal")
+    if body.get("confirmed") is not True:
+        raise APIError(400, "Confirma que verificaste el celular registrado.")
+    row = db.execute("SELECT phone FROM neighbors WHERE id=?", (neighbor,)).fetchone()
+    if not row:
+        raise APIError(404, "Cuenta vecinal no encontrada.")
+    code = save_recovery_code(db, neighbor, now() + 30 * 60)
+    audit(db, actor, "recuperacion_vecinal_asistida", neighbor)
+    return {"code": code, "phone": row["phone"]}
+
+
+def reset_password(body, ip):
+    role = body.get("role")
+    if role not in ("neighbor", "coordinator"):
+        raise APIError(400, "Selecciona el tipo de cuenta.")
+    account = field(body, "account", "el usuario o celular", 64)
+    code = re.sub(r"[\s-]", "", field(body, "code", "el código de recuperación", 50)).upper()
+    if not re.fullmatch(r"[A-F0-9]{24}", code):
+        raise APIError(400, "Revisa el formato del código de recuperación.")
+    password = validate_password(body.get("new_password"))
+    rate_limit((f"recovery-reset:{ip}", 15, 900))
+    with database() as db:
+        actor = (find_coordinator(db, account) if role == "coordinator" else db.execute(
+            "SELECT *, 'neighbor' AS role FROM neighbors WHERE phone=?", (phone_number(account),)).fetchone())
+        stored = db.execute("SELECT digest FROM recovery_codes WHERE actor_id=? AND (expires=0 OR expires>?)",
+                            (actor["id"], now())).fetchone() if actor else None
+    code_digest = digest(code)
+    invalid = APIError(401, "La cuenta o el código de recuperación no son válidos.")
+    if not stored or not hmac.compare_digest(stored["digest"], code_digest):
+        raise invalid
+    encoded = password_hash(password)
+    with database(write=True) as db:
+        if role == "coordinator" and not db.execute(
+            "SELECT 1 FROM staff WHERE id=? AND role='coordinator' AND active=1 AND must_change=0", (actor["id"],)
+        ).fetchone():
+            raise invalid
+        if not db.execute("DELETE FROM recovery_codes WHERE actor_id=? AND digest=? AND (expires=0 OR expires>?)",
+                          (actor["id"], code_digest, now())).rowcount:
+            raise invalid
+        if role == "coordinator":
+            db.execute("UPDATE staff SET password_hash=? WHERE id=?", (encoded, actor["id"]))
+        else:
+            db.execute("UPDATE neighbors SET password_hash=? WHERE id=?", (encoded, actor["id"]))
+        db.execute("DELETE FROM sessions WHERE actor_id=?", (actor["id"],))
+        audit(db, actor, "contrasena_recuperada")
+    return {"ok": True}
 
 
 def login_ceo(body, ip, previous):
@@ -220,7 +318,7 @@ def request_coordinator(body, ip):
     encoded = password_hash(password)
     request_id = secrets.token_hex(16)
     with database(write=True) as db:
-        if db.execute("SELECT 1 FROM staff WHERE username=? OR (role='ceo' AND phone=?)", (username, phone)).fetchone():
+        if db.execute("SELECT 1 FROM staff WHERE username=? OR phone=?", (username, phone)).fetchone():
             raise APIError(409, "Ese usuario o celular ya está reservado.")
         try:
             db.execute("""INSERT INTO coordinator_requests

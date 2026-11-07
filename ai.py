@@ -10,7 +10,8 @@ from urllib.request import Request, urlopen
 from core import APIError, field
 from geography import COMMUNE_NAMES, key
 
-MODEL_URL = os.environ.get("CHISPA_AI_URL", "http://127.0.0.1:18747/v1/chat/completions")
+MODEL_URL = os.environ.get("CHISPA_AI_URL", "" if os.environ.get("RENDER") == "true" else
+                           "http://127.0.0.1:18747/v1/chat/completions")
 MODEL = os.environ.get("CHISPA_AI_MODEL", "qwen-local")
 BUSY = threading.BoundedSemaphore(1)
 MAX_RESPONSE = 32 * 1024
@@ -63,10 +64,18 @@ def suggest(body):
         ],
     }
     title = " ".join(facts["title"].split())
-    activities = ["Bienvenida y presentación", "Actividad principal: " + title, "Cierre de la actividad"]
-    template = sheet("", activities, times, facts["accessibility"], "template")
+    description = " ".join(facts["description"].split())
+    sentences = re.split(r"(?<=[.!?])\s+", description)
+    summary = next((sentence for sentence in sentences if 25 <= len(sentence) <= 160), sentences[0])
+    if len(summary) > 160:
+        end = summary.rfind(" ", 0, 159)
+        summary = summary[:end if end > 0 else 159].rstrip() + "…"
+    activities = ["Bienvenida y presentación", "Actividad principal: " + title, "Cierre y consultas"]
+    template = sheet(summary, activities, times, facts["accessibility"], "template")
     if body.get("device") is True:
         return {**template, "device_payload": payload}
+    if not MODEL_URL:
+        return template
     if not BUSY.acquire(blocking=False):
         raise APIError(429, "La IA está preparando otra ficha. Intenta nuevamente en unos momentos.")
     try:

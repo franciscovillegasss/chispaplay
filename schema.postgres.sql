@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS sessions (
  digest TEXT PRIMARY KEY, actor_id TEXT NOT NULL, role TEXT NOT NULL, expires BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS session_actor ON sessions(actor_id);
+CREATE TABLE IF NOT EXISTS recovery_codes (
+ actor_id TEXT PRIMARY KEY, digest TEXT NOT NULL, expires BIGINT NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS rate_limits (bucket TEXT NOT NULL, created BIGINT NOT NULL);
 CREATE INDEX IF NOT EXISTS rate_bucket ON rate_limits(bucket,created);
 CREATE TABLE IF NOT EXISTS events (

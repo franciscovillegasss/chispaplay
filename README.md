@@ -30,7 +30,7 @@ El seguimiento de navegación está activo para todas las cuentas vecinales. Reg
 
 ## IA local y ficha de actividad
 
-La IA sugiere un resumen breve de por qué ir y un cronograma editable. Usa el título, la descripción, la categoría y las edades. La aplicación aplica la sugerencia solo a los campos vacíos. El coordinador revisa la propuesta antes de publicar y conserva el control de la accesibilidad, los horarios y el lugar.
+El asistente de fichas está disponible desde el formulario de coordinación. El servidor produce un borrador con una frase de la descripción y el cronograma, sin depender de un modelo externo. Si Chrome tiene su modelo integrado disponible en español, el formulario puede mejorar ese borrador con la Prompt API. La aplicación completa solo los campos vacíos. El coordinador conserva el control de la accesibilidad, los horarios y el lugar.
 
 El servicio de IA usa un modelo local con `node-llama-cpp`. Requiere Node.js y un modelo GGUF compatible. Para instalar las dependencias del servicio:
 
@@ -38,7 +38,7 @@ El servicio de IA usa un modelo local con `node-llama-cpp`. Requiere Node.js y u
 npm install --prefix local-ai
 ```
 
-Configura `CHISPA_AI_MODEL_PATH` con la ruta absoluta al modelo y ejecuta `node local-ai/server.mjs` junto a `python server.py`. El servicio escucha únicamente en `127.0.0.1:18747`. Puedes cambiar el puerto con `CHISPA_AI_PORT` y ajustar `CHISPA_AI_URL` en el servidor web. Si el modelo está apagado o devuelve datos inválidos, se ofrece un cronograma básico editable y el coordinador escribe el resumen. El Blueprint de Render publica solo el servidor Python, por lo que usa esa plantilla sin un modelo conectado.
+Configura `CHISPA_AI_MODEL_PATH` con la ruta absoluta al modelo y ejecuta `node local-ai/server.mjs` junto a `python server.py`. El servicio escucha únicamente en `127.0.0.1:18747`. Puedes cambiar el puerto con `CHISPA_AI_PORT` y ajustar `CHISPA_AI_URL` en el servidor web. Si el modelo está apagado o devuelve datos inválidos, el asistente conserva el borrador generado con el texto y los horarios del coordinador. El Blueprint de Render publica el servidor Python y el asistente de fichas.
 
 Se ha integrado [Qwen3-0.6B-GGUF de Qwen](https://huggingface.co/Qwen/Qwen3-0.6B-GGUF), que ocupa aproximadamente 610 MiB. El procesamiento local usa memoria y CPU del computador, sin llamadas a una API de pago. La ficha publicada incluye el resumen aprobado, el cronograma, los datos de accesibilidad, una ventana de Google Maps y descarga de calendario ICS o enlace a Google Calendar.
 
@@ -91,7 +91,7 @@ En Render, crea un Blueprint conectado a este repositorio y selecciona la rama `
 
 Si vas a conservar cuentas y eventos existentes, ejecuta la migración anterior antes de habilitar el servicio público. Usa una contraseña nueva para la cuenta CEO antes de publicar. Si partes de una base vacía, puedes crear la cuenta CEO desde tu entorno local conectado al mismo PostgreSQL, con el comando `python server.py ceo` documentado arriba.
 
-La IA de fichas requiere su propio proceso y modelo. Este Blueprint publica la aplicación Python. La ficha se puede completar manualmente mientras el servicio de IA está apagado.
+El asistente básico de fichas está incluido en la aplicación Python publicada. La IA generativa se puede ejecutar con el modelo integrado de un navegador compatible o con el proceso Qwen del equipo del coordinador.
 
 ## Referencias y avisos de WhatsApp
 
@@ -104,3 +104,9 @@ El flyer al final del ranking y de la cartelera permite suscribirse a avisos de 
 ## Ingreso unificado
 
 En Mi Pase, la opción «Ya tengo una cuenta» recibe nombre, celular y contraseña. El servidor reconoce la cuenta y su rol. Una cuenta CEO válida abre su perfil con acceso al panel. Los registros de navegación se limitan a interacciones dentro de ChispaPlay, como se indica al crear la cuenta.
+
+Los coordinadores pueden ingresar con el nombre de usuario o con su celular registrado. El panel CEO permite asignar un celular a cuentas de coordinación antiguas. La opción «Mantener mi sesión en este dispositivo» amplía la sesión vecinal a 90 días y la de coordinación a 7 días. Los formularios permiten el autocompletado del navegador y pueden ofrecer guardar las credenciales en el gestor del dispositivo.
+
+Vecinos y coordinadores pueden generar un código de recuperación desde su perfil o panel con la contraseña actual. Se muestra al generarlo y se almacena como hash. «Olvidé mi contraseña» consume el código y revoca todas las sesiones de la cuenta. El equipo puede ayudar a un vecino sin código desde el panel CEO, verificando primero el celular registrado y enviando manualmente un código que vence en 30 minutos. Para coordinadores sigue disponible la contraseña temporal administrada por CEO.
+
+Al publicar un taller, selecciona uno de los puntos de referencia de su comuna. El ranking muestra únicamente esas referencias. Las fichas anteriores conservan su sector histórico si se edita la actividad sin cambiar de comuna ni de sector.

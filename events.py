@@ -8,7 +8,7 @@ import secrets
 from datetime import datetime
 
 from core import APIError, audit, field, now
-from geography import COMMUNES, COMMUNE_NAMES, key
+from geography import COMMUNES, COMMUNE_NAMES, REFERENCE_POINTS, key
 
 MAX_IMAGE = 3 * 1024 * 1024
 IMAGES = {"image/jpeg": b"\xff\xd8\xff", "image/png": b"\x89PNG\r\n\x1a\n", "image/webp": b"RIFF"}
@@ -99,6 +99,12 @@ def save(db, actor, body, event=None):
     if key(data["commune"]) not in COMMUNE_NAMES:
         raise APIError(400, "Selecciona una comuna de la Región Metropolitana.")
     data["commune"] = COMMUNE_NAMES[key(data["commune"])]
+    sector = next((point["name"] for point in REFERENCE_POINTS[data["commune"]]
+                   if data["sector"] in (point["id"], point["name"])), None)
+    if sector:
+        data["sector"] = sector
+    elif not event or (data["commune"], data["sector"]) != (event["commune"], event["sector"]):
+        raise APIError(400, "Elige un punto de referencia existente de la comuna.")
     why = body.get("why_go", "")
     if not isinstance(why, str) or len(why) > 240:
         raise APIError(400, "El resumen debe tener hasta 240 caracteres.")

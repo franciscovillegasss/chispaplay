@@ -216,12 +216,17 @@ class Handler(BaseHTTPRequestHandler):
             return auth.login_neighbor(body, self.client_ip(), token)
         if path == "/api/account/login":
             return auth.login_account(body, self.client_ip(), token)
+        if path == "/api/account/recovery-code":
+            return auth.issue_recovery_code(body, token), None
+        if path == "/api/account/reset-password":
+            return auth.reset_password(body, self.client_ip()), None
         if path == "/api/coordinator/request":
             return auth.request_coordinator(body, self.client_ip()), None
         if path == "/api/coordinator/suggest":
             with database() as db:
                 actor = auth.actor_for(db, token, "coordinator")
-            rate_limit((f"ai:{actor['id']}", 10, 3600))
+            limit = 10 if ai.MODEL_URL and body.get("device") is not True else 60
+            rate_limit((f"ai:{actor['id']}", limit, 3600))
             suggestion = ai.suggest(body)
             with database(write=True) as db:
                 actor = auth.actor_for(db, token, "coordinator")
@@ -269,6 +274,8 @@ class Handler(BaseHTTPRequestHandler):
             return events.attendance(db, actor, event, body)
         if path.startswith("/api/ceo/"):
             actor = auth.actor_for(db, token, "ceo")
+            if path == "/api/ceo/neighbor-recovery":
+                return auth.issue_assisted_recovery(db, actor, body)
             if path == "/api/ceo/history":
                 return management.history(db, actor, body.get("neighbor"))
             return management.manage(db, actor, path, body)

@@ -16,6 +16,7 @@ const statusNames = {
 };
 let actor = null;
 let communes = [];
+let referencePoints = {};
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -287,23 +288,84 @@ function whatsappMessage(subscriber, events) {
     listing + '\n\nPuedes cancelar estos avisos desde Mi Pase Vecinal.';
 }
 
+const rememberDevice = `<label class="check"><input name="remember" type="checkbox"> Mantener mi sesión en este dispositivo</label>
+  <p class="muted">En un equipo personal, también puedes guardar la contraseña en el gestor de tu navegador.</p>`;
+
+function offerBrowserSave(fields, identity) {
+  if (fields.remember !== 'on' || !window.PasswordCredential || !navigator.credentials) return;
+  try {
+    navigator.credentials.store(new PasswordCredential({ id: identity, password: fields.password })).catch(() => {});
+  } catch { /* El autocompletado del navegador sigue disponible. */ }
+}
+
+function recoveryForm(role) {
+  const staff = role === 'coordinator';
+  app.innerHTML = `<section class="panel narrow auth-panel"><h1>Recuperar contraseña</h1>
+    <p>Usa el código que guardaste desde tu cuenta. Cada código funciona una sola vez.</p>
+    <form id="reset-password">
+      <label>${staff ? 'Usuario o celular' : 'Celular chileno'} <input name="account" ${staff ? '' : 'type="tel"'} autocomplete="username" required maxlength="64"></label>
+      <label>Código de recuperación <input name="code" required maxlength="50" autocomplete="off" spellcheck="false"></label>
+      <label>Nueva contraseña <input name="new_password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+      <label>Confirma la contraseña <input name="confirm_password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+      <button type="submit">Restablecer contraseña</button>
+    </form>
+    <p class="muted">${staff ? 'Si no tienes un código, solicita una contraseña temporal al equipo de ChispaPlay.' : 'Si no guardaste un código, revisa el gestor de contraseñas o contacta al equipo de ChispaPlay desde tu celular registrado.'}</p>
+    <button id="recovery-back" class="secondary" type="button">Volver al ingreso</button></section>`;
+  const back = () => staff ? staffLogin(role) : neighborLogin(false);
+  onClick('recovery-back', back);
+  onForm('reset-password', async ({ account, code, new_password, confirm_password }) => {
+    if (new_password !== confirm_password) throw new Error('Las contraseñas no coinciden.');
+    await api('/api/account/reset-password', { account, code, new_password, role });
+    back();
+    notify('Contraseña actualizada. Inicia sesión y genera un nuevo código de recuperación.');
+  });
+}
+
+function recoverySection() {
+  return `<details class="panel narrow" id="recovery-settings"><summary>Código de recuperación</summary>
+    <p>Genera y guarda un código de un solo uso para recuperar tu cuenta. Al generar otro, el anterior deja de funcionar.</p>
+    <form id="issue-recovery">
+      <label>Contraseña actual <input name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
+      <button type="submit">Generar código de recuperación</button>
+    </form><p id="recovery-result" hidden><code id="recovery-code"></code>
+      <button id="copy-recovery" class="secondary" type="button">Copiar código de recuperación</button></p></details>`;
+}
+
+function bindRecovery() {
+  onForm('issue-recovery', async (fields, form) => {
+    const { code } = await api('/api/account/recovery-code', fields);
+    form.reset();
+    document.getElementById('recovery-code').textContent = code;
+    document.getElementById('recovery-result').hidden = false;
+    notify('Guarda el código en un lugar seguro. Se muestra solo al generarlo.');
+  });
+  onClick('copy-recovery', async () => {
+    await navigator.clipboard.writeText(document.getElementById('recovery-code').textContent);
+    notify('Código de recuperación copiado.');
+  });
+}
+
 function neighborLogin(register = true) {
   app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Credencial de barrio</p>
     <h1>Mi Pase Vecinal</h1><h2>${register ? 'Crea tu cuenta' : 'Entra a tu cuenta'}</h2>
     <p>${register ? 'Usa tu nombre y celular para obtener tu código personal de asistencia.' : 'Ingresa el nombre, celular y contraseña de tu cuenta.'}</p>
     <form id="neighbor-auth">
-      <label>Nombre <input name="name" autocomplete="${register ? 'name' : 'username'}" required minlength="2" maxlength="100"></label>
-      <label>Celular chileno <input name="phone" type="tel" autocomplete="tel" required maxlength="25" placeholder="+56 9 1234 5678"></label>
+      <label>Nombre <input name="name" autocomplete="name" required minlength="2" maxlength="100"></label>
+      <label>Celular chileno <input name="phone" type="tel" autocomplete="${register ? 'tel' : 'username'}" required maxlength="25" placeholder="+56 9 1234 5678"></label>
       <label>Contraseña <input name="password" type="password" autocomplete="${register ? 'new-password' : 'current-password'}" required ${register ? 'minlength="12"' : ''} maxlength="128"></label>
       ${register ? '<div hidden aria-hidden="true"><label>Sitio web <input name="website" autocomplete="off" tabindex="-1"></label></div>' : ''}
+      ${rememberDevice}
       <p class="muted">ChispaPlay registra únicamente tus interacciones dentro de esta página web para medir el uso de la cartelera. No registra tu navegación en otros sitios ni aplicaciones. El historial de esta web se conserva durante 90 días.</p>
       <button type="submit">${register ? 'Crear Pase Vecinal' : 'Iniciar sesión'}</button>
     </form>
     <button id="switch-auth" class="secondary">${register ? 'Ya tengo una cuenta' : 'Crear una cuenta'}</button>
+    ${register ? '' : '<button id="forgot-password" class="secondary" type="button">Olvidé mi contraseña</button>'}
   </section>`;
   onClick('switch-auth', () => neighborLogin(!register));
+  onClick('forgot-password', () => recoveryForm('neighbor'));
   onForm('neighbor-auth', async fields => {
     ({ actor } = await api(register ? '/api/neighbors/register' : '/api/account/login', fields));
+    if (actor.role === 'neighbor') offerBrowserSave(fields, fields.phone);
     renderNavigation(page, actor);
     if (actor.role === 'ceo') {
       location.assign('/perfil.html');
@@ -311,7 +373,8 @@ function neighborLogin(register = true) {
       location.replace(eventUrl(query.get('activity')));
     } else {
       await renderProfile();
-      notify('Ya puedes usar tu Pase Vecinal.');
+      if (register) document.getElementById('recovery-settings').open = true;
+      notify(register ? 'Pase creado. Guarda tu código de recuperación desde Mi Pase.' : 'Ya puedes usar tu Pase Vecinal.');
     }
   });
 }
@@ -360,10 +423,12 @@ async function renderProfile() {
         item.active ? '<button class="secondary" id="unsubscribe-' + index + '">Cancelar avisos</button>' : ''
       ]), 'Todavía no elegiste una comuna para recibir avisos.')}
     </section>
+    ${recoverySection()}
     <section class="panel narrow"><h2>Uso de la cartelera</h2>
       <p>Registramos únicamente las aperturas de la cartelera y fichas, el uso de filtros y los clics en mapa, calendario y compartir dentro de ChispaPlay durante 90 días. No registramos la navegación fuera de esta web. Las reservas, asistencias y reportes se conservan como operaciones del servicio.</p>
     </section>`;
   signOut();
+  bindRecovery();
   bindNotifications('profile-subscribe', true);
   for (const [index, item] of data.notifications.entries()) {
     onClick('unsubscribe-' + index, async () => {
@@ -384,13 +449,17 @@ function staffLogin(role) {
   const title = role === 'ceo' ? 'Panel de Inteligencia CEO' : 'Gestión Comunitaria de Talleres';
   app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Área restringida</p>
     <h1>${title}</h1><p>Usa tu cuenta de coordinación aprobada.</p><form id="staff-login">
-      <label>Usuario <input name="username" autocomplete="username" required maxlength="64"></label>
+      <label>Usuario o celular <input name="account" autocomplete="username" required maxlength="64"></label>
       <label>Contraseña <input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
+      ${rememberDevice}
       <button type="submit">Iniciar sesión</button>
-    </form><div class="actions"><button id="request-coordinator" class="secondary">Crear cuenta nueva</button></div></section>`;
+    </form><div class="actions"><button id="request-coordinator" class="secondary">Crear cuenta nueva</button>
+    <button id="forgot-password" class="secondary" type="button">Olvidé mi contraseña</button></div></section>`;
   onClick('request-coordinator', coordinatorRequest);
+  onClick('forgot-password', () => recoveryForm(role));
   onForm('staff-login', async fields => {
     ({ actor } = await api('/api/staff/login', { ...fields, role }));
+    if (!actor.must_change) offerBrowserSave(fields, fields.account);
     await renderStaff(role);
   });
 }
@@ -429,6 +498,7 @@ function passwordSection(required = false) {
 
 function connectStaff(role) {
   signOut();
+  if (role === 'coordinator') bindRecovery();
   onForm('change-password', async fields => {
     ({ actor } = await api('/api/staff/password', fields));
     await renderStaff(role);
@@ -490,7 +560,7 @@ function eventEditor(event = {}) {
         <label>Comuna <select name="commune" aria-label="Comuna" required><option value="">Selecciona una comuna</option>
           ${communes.map(name => '<option value="' + escapeHtml(name) + '"' + (name === event.commune ? ' selected' : '') + '>' + escapeHtml(name) + '</option>').join('')}
         </select></label>
-        ${textInput('sector', 'Sector', event.sector, 80)}
+        <label>Punto de referencia <select name="sector" aria-label="Punto de referencia" required></select></label>
         ${textInput('venue', 'Lugar', event.venue, 120)}
         ${textInput('address', 'Dirección', event.address, 180)}
         <label>Inicio (hora de Chile continental) <input name="starts" type="datetime-local" required value="${edit ? inputDate(event.starts) : ''}"></label>
@@ -518,9 +588,10 @@ function eventEditor(event = {}) {
         <input name="photo" type="file" accept="image/jpeg,image/png,image/webp">
       </label>
       ${event.photo ? '<label class="check"><input name="remove_photo" type="checkbox"> Quitar foto actual</label>' : ''}
-      <p class="muted">La sugerencia completa los campos vacíos. Si la IA local está apagada, se ofrece un cronograma básico. Revisa la propuesta y confirma las condiciones de accesibilidad antes de publicar.</p>
+      <p class="muted">Genera un borrador con tu descripción y horario desde cualquier navegador. Si Chrome tiene su IA disponible, también puede redactar la propuesta. Solo se completan los campos vacíos.</p>
       <label class="check"><input type="checkbox" name="device_ai"> Usar la IA instalada en este equipo</label>
       <div class="actions"><button type="button" id="suggest-sheet" class="secondary">Generar ficha sugerida con IA</button>
+      <button type="button" id="enable-browser-ai" class="secondary" hidden>Activar IA integrada de Chrome</button>
       <button type="submit">${edit ? 'Guardar cambios' : 'Publicar en cartelera'}</button>
       ${edit ? '<button type="button" class="secondary" id="stop-edit">Cerrar edición</button>' : ''}</div>
     </form></section>`;
@@ -536,6 +607,48 @@ function asDataUrl(file) {
   });
 }
 
+function applyModelOutput(suggestion, content, source) {
+  const { why_go, schedule } = JSON.parse(content);
+  const clean = value => typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  const why = clean(why_go);
+  if (!why || why.length > 240 || !Array.isArray(schedule) || schedule.length !== 3) return suggestion;
+  const activities = schedule.map(row => clean(row?.activity));
+  if (activities.some(activity => !activity || activity.length > 180) ||
+      new Set(activities.map(activity => activity.toLowerCase())).size !== 3) return suggestion;
+  return { why_go: why, source, schedule: suggestion.schedule.map((row, i) => ({ ...row, activity: activities[i] })) };
+}
+
+const browserModelLanguages = {
+  expectedInputs: [{ type: 'text', languages: ['es'] }],
+  expectedOutputs: [{ type: 'text', languages: ['es'] }]
+};
+
+async function browserModelStatus() {
+  try {
+    return await globalThis.LanguageModel?.availability(browserModelLanguages);
+  } catch {
+    return undefined;
+  }
+}
+
+async function suggestOnBrowser(suggestion) {
+  let model;
+  try {
+    const payload = suggestion.device_payload;
+    const signal = AbortSignal.timeout(12000);
+    model = await LanguageModel.create({ ...browserModelLanguages, signal,
+      initialPrompts: [payload.messages[0]] });
+    const content = await model.prompt(payload.messages[1].content, {
+      responseConstraint: payload.response_format.json_schema.schema, signal
+    });
+    return applyModelOutput(suggestion, content, 'browser');
+  } catch {
+    return suggestion;
+  } finally {
+    model?.destroy();
+  }
+}
+
 async function suggestOnDevice(suggestion) {
   try {
     const response = await fetch('http://127.0.0.1:18747/v1/chat/completions', {
@@ -545,14 +658,7 @@ async function suggestOnDevice(suggestion) {
     });
     if (!response.ok) return suggestion;
     const output = await response.json();
-    const { why_go, schedule } = JSON.parse(output.choices[0].message.content);
-    const clean = value => typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
-    const why = clean(why_go);
-    if (!why || why.length > 240 || !Array.isArray(schedule) || schedule.length !== 3) return suggestion;
-    const activities = schedule.map(row => clean(row?.activity));
-    if (activities.some(activity => !activity || activity.length > 180) ||
-        new Set(activities.map(activity => activity.toLowerCase())).size !== 3) return suggestion;
-    return { why_go: why, source: 'device', schedule: suggestion.schedule.map((row, i) => ({ ...row, activity: activities[i] })) };
+    return applyModelOutput(suggestion, output.choices[0].message.content, 'device');
   } catch {
     return suggestion;
   }
@@ -561,6 +667,31 @@ async function suggestOnDevice(suggestion) {
 function openEditor(event) {
   const editor = document.getElementById('editor');
   editor.innerHTML = eventEditor(event);
+  const form = document.getElementById('edit-event');
+  const commune = form.elements.commune;
+  const sector = form.elements.sector;
+  function setReferenceOptions(selected) {
+    const points = referencePoints[commune.value] || [];
+    sector.replaceChildren(new Option(points.length ? 'Selecciona un punto' : 'Selecciona primero una comuna', ''));
+    for (const point of points) sector.add(new Option(point.name, point.name));
+    if (event?.commune === commune.value && selected === event.sector && !points.some(point => point.name === selected)) {
+      sector.add(new Option(selected + ' (sector anterior)', selected));
+    }
+    sector.value = selected || '';
+  }
+  setReferenceOptions(event?.sector);
+  commune.addEventListener('change', () => setReferenceOptions(commune.value === event?.commune ? event.sector : ''));
+  const enableBrowserAI = form.querySelector('#enable-browser-ai');
+  browserModelStatus().then(status => {
+    enableBrowserAI.hidden = status !== 'downloadable' && status !== 'downloading';
+  });
+  onClick('enable-browser-ai', async () => {
+    notify('Chrome está preparando su modelo de IA. Puedes seguir usando el borrador básico.');
+    const model = await LanguageModel.create(browserModelLanguages);
+    model.destroy();
+    enableBrowserAI.hidden = true;
+    if (form.isConnected) notify('La IA de Chrome está disponible para generar fichas.');
+  });
   onForm('edit-event', async fields => {
     const { photo, remove_photo, device_ai, ...body } = fields;
     body.starts = isoDate(body.starts);
@@ -598,8 +729,11 @@ function openEditor(event) {
     facts.ends_label = date(end);
     facts.schedule_times = [values.starts.slice(11), inputDate((start + end) / 2).slice(11), values.ends.slice(11)];
     notify('Preparando una sugerencia para la ficha…');
-    const requested = await api('/api/coordinator/suggest', { ...facts, device: values.device_ai === 'on' });
-    const suggestion = requested.device_payload ? await suggestOnDevice(requested) : requested;
+    const useDevice = values.device_ai === 'on';
+    const useBrowser = !useDevice && await browserModelStatus() === 'available';
+    const requested = await api('/api/coordinator/suggest', { ...facts, device: useDevice || useBrowser });
+    const suggestion = requested.device_payload
+      ? await (useDevice ? suggestOnDevice(requested) : suggestOnBrowser(requested)) : requested;
     if (!form.isConnected) return;
     if (inputs.some(name => form.elements[name].value !== values[name])) {
       throw new Error('Los datos de la actividad cambiaron. Vuelve a generar la sugerencia.');
@@ -608,9 +742,9 @@ function openEditor(event) {
     if (!form.elements.schedule.value.trim()) {
       form.elements.schedule.value = suggestion.schedule.map(row => row.time + ' | ' + row.activity).join('\n');
     }
-    notify(suggestion.source === 'device' ? 'Ficha sugerida por la IA de este equipo. Revisa el texto antes de publicar.' : suggestion.source === 'template'
-      ? 'IA local no disponible. Puedes usar el cronograma básico y completar el resumen.'
-      : 'Ficha sugerida lista. Revisa el resumen y el cronograma antes de publicar.');
+    notify(suggestion.source === 'template'
+      ? 'Borrador generado con tu descripción y horario. Revísalo antes de publicar.'
+      : 'Ficha sugerida por IA. Revisa el resumen y el cronograma antes de publicar.');
   });
   onClick('stop-edit', () => openEditor());
 }
@@ -667,6 +801,7 @@ async function renderCoordinator(selected) {
         escapeHtml(event.title), String(event.booked), String(event.waiting), String(event.attended)
       ]), 'Todavía no hay actividades.')}</section>
     ${passwordSection()}
+    ${recoverySection()}
   `;
   connectStaff('coordinator');
   openEditor();
@@ -762,7 +897,8 @@ async function renderCEO(search = '') {
       <p class="muted">Hasta 100 resultados. Busca una cuenta específica para ver su historial.</p>
       ${table(['Nombre', 'Teléfono', 'Registro', 'Historial'], data.neighbors.map((item, index) => [
         escapeHtml(item.name), escapeHtml(item.phone),
-        escapeHtml(date(item.created)), '<button class="secondary" id="history-' + index + '">Ver historial</button>'
+        escapeHtml(date(item.created)), '<div class="actions"><button class="secondary" id="history-' + index + '">Ver historial</button>' +
+          '<button class="secondary" id="recover-neighbor-' + index + '">Ayudar a recuperar acceso</button></div>'
       ]), 'No hay vecinos para esta búsqueda.')}
     </section>
     <section class="panel" id="neighbor-history" hidden></section>
@@ -788,11 +924,12 @@ async function renderCEO(search = '') {
         escapeHtml(item.username), escapeHtml(item.name), item.active ? (item.must_change ? 'Cambio de clave pendiente' : 'Activo') : 'Suspendido',
         '<div class="actions"><button class="secondary" id="staff-status-' + index + '">' +
           (item.active ? 'Suspender' : 'Activar') + '</button><button class="secondary" id="reset-staff-' + index +
-          '">Restablecer contraseña</button></div>'
+          '">Restablecer contraseña</button><button class="secondary" id="staff-phone-' + index + '">Editar celular</button></div>'
       ]), 'Todavía no hay cuentas de coordinación.')}
       <details><summary>Crear cuenta de coordinador</summary><form id="create-staff" class="narrow">
         ${textInput('username', 'Usuario', '', 64, 'autocomplete="off" minlength="3"')}
         ${textInput('name', 'Nombre u organización', '', 120, 'minlength="2"')}
+        <label>Celular chileno (opcional) <input name="phone" type="tel" autocomplete="off" maxlength="25"></label>
         <label>Contraseña temporal <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
         <button type="submit">Crear cuenta</button>
         <p class="muted">El coordinador deberá cambiar la contraseña temporal en su primer ingreso.</p>
@@ -842,6 +979,17 @@ async function renderCEO(search = '') {
     notify('Cuenta creada.');
   });
   for (const [index, neighbor] of data.neighbors.entries()) {
+    onClick('recover-neighbor-' + index, async () => {
+      if (!confirm('¿Confirmas que verificaste la solicitud desde el celular registrado ' + neighbor.phone + '?')) return;
+      const { code, phone } = await api('/api/ceo/neighbor-recovery', { neighbor: neighbor.id, confirmed: true });
+      const href = 'https://wa.me/' + phone.replace(/\D/g, '') + '?text=' + encodeURIComponent(
+        'Tu código de recuperación de ChispaPlay es ' + code + '. Dura 30 minutos. Úsalo en Mi Pase Vecinal → Olvidé mi contraseña.');
+      const panel = document.getElementById('neighbor-history');
+      panel.innerHTML = '<h2>Recuperación vecinal</h2><p>El código vence en 30 minutos.</p>' +
+        '<a class="button" target="_blank" rel="noopener noreferrer" href="' + escapeHtml(href) + '">Abrir WhatsApp del celular registrado</a>';
+      panel.hidden = false;
+      panel.scrollIntoView({ block: 'nearest' });
+    });
     onClick('history-' + index, async () => {
       const history = await api('/api/ceo/history', { neighbor: neighbor.id });
       const panel = document.getElementById('neighbor-history');
@@ -853,6 +1001,19 @@ async function renderCEO(search = '') {
     });
   }
   for (const [index, staff] of data.staff.entries()) {
+    onClick('staff-phone-' + index, () => {
+      const panel = document.getElementById('reset-panel');
+      panel.innerHTML = '<form id="set-staff-phone" class="narrow">' +
+        textInput('phone', 'Celular chileno', staff.phone, 25, 'type="tel" autocomplete="off"') +
+        '<button type="submit">Guardar celular</button></form>';
+      panel.hidden = false;
+      panel.querySelector('input').focus();
+      onForm('set-staff-phone', async ({ phone }) => {
+        await api('/api/ceo/staff/phone', { id: staff.id, phone });
+        await renderCEO(search);
+        notify('Celular de coordinación actualizado.');
+      });
+    });
     onClick('staff-status-' + index, async () => {
       if (staff.active && !confirm('¿Suspender esta cuenta y cerrar sus sesiones?')) return;
       await api('/api/ceo/staff/status', { id: staff.id, active: !staff.active });
@@ -893,11 +1054,13 @@ async function renderCEO(search = '') {
 async function start() {
   try {
     const [sessionData, geographyData, catalogData] = await Promise.all([
-      api('/api/session'), api('/api/communes'), api('/api/events')
+      api('/api/session'), api('/api/communes'),
+      page === 'home' || page === 'catalog' ? api('/api/events') : Promise.resolve({ events: [] })
     ]);
     actor = sessionData.actor;
     communes = geographyData.communes;
-    configureGeography(communes, catalogData.events, geographyData.references);
+    referencePoints = geographyData.references;
+    configureGeography(communes, referencePoints);
     renderNavigation(page, actor);
     if (page === 'home' || page === 'catalog') {
       const events = catalogData.events;

@@ -28,7 +28,7 @@ def dashboard(db, search):
     cutoff = now() - TRAFFIC_DAYS * 86400
     traffic = db.execute("""SELECT action,COUNT(*) AS total,COUNT(DISTINCT neighbor_id) AS people
         FROM traffic WHERE created>=? GROUP BY action""", (cutoff,))
-    staff = db.execute("SELECT id,username,name,active,must_change FROM staff WHERE role='coordinator' ORDER BY name")
+    staff = db.execute("SELECT id,username,name,phone,active,must_change FROM staff WHERE role='coordinator' ORDER BY name")
     neighbors = db.execute("""SELECT id,name,phone,tracking,created FROM neighbors
         WHERE instr(lower(name),lower(?))>0 OR instr(phone,?)>0 ORDER BY created DESC LIMIT 100""", (search, search))
     entries = db.execute("""
@@ -73,6 +73,8 @@ def manage(db, actor, path, body):
         if request["status"] != "pending":
             return {"status": request["status"]}
         if decision == "approved":
+            if db.execute("SELECT 1 FROM staff WHERE phone=?", (request["phone"],)).fetchone():
+                raise APIError(409, "Ese celular ya está asociado a una cuenta del equipo.")
             try:
                 staff_id = auth.create_staff(db, request["username"], request["organization"],
                                              request["password_hash"], "coordinator")
@@ -87,13 +89,18 @@ def manage(db, actor, path, body):
         username = auth.username_for(body.get("username"))
         name = field(body, "name", "el nombre del coordinador u organización", 120, 2)
         password = auth.validate_password(body.get("password"))
+        phone = auth.phone_number(body["phone"]) if body.get("phone") else None
+        if phone and db.execute("SELECT 1 FROM staff WHERE phone=?", (phone,)).fetchone():
+            raise APIError(409, "Ese celular ya está asociado a una cuenta del equipo.")
         try:
             staff_id = auth.create_staff(db, username, name, auth.password_hash(password), "coordinator", True)
         except sqlite3.IntegrityError:
             raise APIError(409, "Ese usuario ya existe.") from None
+        if phone:
+            db.execute("UPDATE staff SET phone=? WHERE id=?", (phone, staff_id))
         audit(db, actor, "coordinador_creado", staff_id)
         return {"id": staff_id}
-    if path in ("/api/ceo/staff/status", "/api/ceo/staff/password"):
+    if path in ("/api/ceo/staff/status", "/api/ceo/staff/password", "/api/ceo/staff/phone"):
         staff_id = identifier(body.get("id"), "el coordinador")
         if not db.execute("SELECT 1 FROM staff WHERE id=? AND role='coordinator'", (staff_id,)).fetchone():
             raise APIError(404, "Coordinador no encontrado.")
@@ -103,9 +110,16 @@ def manage(db, actor, path, body):
                 raise APIError(400, "Selecciona un estado válido.")
             db.execute("UPDATE staff SET active=? WHERE id=?", (active, staff_id))
             action = "coordinador_activado" if active else "coordinador_suspendido"
+        elif path.endswith("/phone"):
+            phone = auth.phone_number(body.get("phone"))
+            if db.execute("SELECT 1 FROM staff WHERE phone=? AND id<>?", (phone, staff_id)).fetchone():
+                raise APIError(409, "Ese celular ya está asociado a otra cuenta del equipo.")
+            db.execute("UPDATE staff SET phone=? WHERE id=?", (phone, staff_id))
+            action = "celular_coordinador_actualizado"
         else:
             encoded = auth.password_hash(auth.validate_password(body.get("password")))
             db.execute("UPDATE staff SET password_hash=?,must_change=1 WHERE id=?", (encoded, staff_id))
+            db.execute("DELETE FROM recovery_codes WHERE actor_id=?", (staff_id,))
             action = "contrasena_temporal_emitida"
         db.execute("DELETE FROM sessions WHERE actor_id=?", (staff_id,))
         audit(db, actor, action, staff_id)

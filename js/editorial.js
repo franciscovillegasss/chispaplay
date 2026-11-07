@@ -1,14 +1,12 @@
 let COMMUNES_DATA = {};
 let navigationActor = null;
 
-export function configureGeography(communes, events = [], references = {}) {
+export function configureGeography(communes, references = {}) {
   COMMUNES_DATA = Object.fromEntries(communes.map(name => {
     const id = normalize(name);
-    const sectors = [...new Set(events.filter(event => normalize(event.commune) === id).map(event => event.sector))];
     return [id, { id, name, centerReference: { id: 'all', name: 'Todos los sectores', kind: 'all' },
       suggestions: [{ id: 'all', name: 'Todos los sectores', kind: 'all' },
-        ...(references[name] || []).map(point => ({ ...point, kind: 'reference' })),
-        ...sectors.map((sector, index) => ({ id: 'sector-' + index, name: sector, kind: 'sector' }))] }];
+        ...(references[name] || []).map(point => ({ ...point, kind: 'reference' }))] }];
   }));
 }
 
@@ -354,9 +352,8 @@ function escapeHtml(value) {
 
 function getActiveReferencePoint() {
   const commune = COMMUNES_DATA[getActiveCommune()];
-  const name = params.get('sector') || localStorage.getItem('chispaplay_editorial_sector');
   const id = params.get('reference') || localStorage.getItem('chispaplay_reference_id');
-  return commune.suggestions.find(point => point.id === id) || commune.suggestions.find(sector => sector.name === name) || commune.centerReference;
+  return commune.suggestions.find(point => point.id === id) || commune.centerReference;
 }
 
 function bindNavbarEvents(container, commune) {
@@ -378,7 +375,7 @@ function bindNavbarEvents(container, commune) {
     const sector = commune.suggestions.find(item => item.id === button.dataset.quickRefId);
     localStorage.setItem('chispaplay_active_commune', commune.id);
     localStorage.setItem('chispaplay_reference_id', sector.id);
-    location.href = catalogUrl(commune.id, sector.kind === 'sector' ? sector.name : '', sector.kind === 'reference' ? sector.id : '');
+    location.href = catalogUrl(commune.id, '', sector.kind === 'reference' ? sector.id : '');
   }));
   select('btn-quick-switch-commune').addEventListener('click', () => {
     location.href = 'index.html#hero-interactive-canvas';
@@ -450,7 +447,7 @@ function cards(events, poster, position) {
 }
 
 function renderHome(events, track) {
-  let commune, sector, reference;
+  let commune, reference;
   const selector = document.getElementById('home-commune');
   const sectorBox = document.getElementById('hero-step2-container');
   const sectorGrid = document.getElementById('step2-sectors-grid');
@@ -461,11 +458,9 @@ function renderHome(events, track) {
   selector.addEventListener('change', () => {
     commune = selector.value;
     if (!commune) return;
-    sector = '';
     reference = null;
     localStorage.removeItem('chispaplay_reference_id');
     localStorage.setItem('chispaplay_active_commune', commune);
-    localStorage.removeItem('chispaplay_editorial_sector');
     params.delete('reference');
     params.set('commune', commune);
     renderNavigation('home', navigationActor);
@@ -477,10 +472,8 @@ function renderHome(events, track) {
       choice.className = 'bg-neutral-50 border-2 border-black p-2 text-xs font-bold hover:bg-black hover:text-white';
       choice.textContent = point.name;
       choice.addEventListener('click', () => {
-        sector = point.kind === 'sector' ? point.name : '';
         reference = point.kind === 'reference' ? point : null;
         localStorage.setItem('chispaplay_reference_id', point.id);
-        localStorage.setItem('chispaplay_editorial_sector', sector);
         params.set('reference', point.kind === 'reference' ? point.id : '');
         renderNavigation('home', navigationActor);
         const details = document.getElementById('reference-details');
@@ -507,13 +500,12 @@ function renderHome(events, track) {
   document.querySelectorAll('.btn-step3-timeframe').forEach(button => {
     button.addEventListener('click', () => {
       const maxDays = { hoy: 0, semana: 7, mes: 30 }[button.dataset.timeframe];
-      const items = events.filter(event => inCommune(event) &&
-        (!sector || normalize(event.sector) === normalize(sector)) && daysAway(event) <= maxDays);
+      const items = events.filter(event => inCommune(event) && daysAway(event) <= maxDays);
       if (reference) items.sort((a, b) => distanceMeters(a, reference) - distanceMeters(b, reference));
-      document.getElementById('ranking-headline').textContent = 'Actividades · ' + (reference?.name || sector || COMMUNES_DATA[commune].name);
+      document.getElementById('ranking-headline').textContent = 'Actividades · ' + (reference?.name || COMMUNES_DATA[commune].name);
       document.getElementById('ranking-count-label').textContent = items.length + ' actividades';
       document.getElementById('ranking-list-container').innerHTML = cards(items, true, reference);
-      ranking.querySelector('a').href = catalogUrl(commune, sector, reference?.id || '');
+      ranking.querySelector('a').href = catalogUrl(commune, '', reference?.id || '');
       ranking.classList.remove('hidden');
       ranking.scrollIntoView({ block: 'start' });
       track('filtros_usados');

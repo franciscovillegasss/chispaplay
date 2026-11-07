@@ -10,7 +10,7 @@ from core import database, init_db
 
 TABLES = (
     "neighbors", "staff", "events", "photos", "bookings", "audit", "traffic",
-    "reports", "coordinator_requests", "whatsapp_subscriptions",
+    "reports", "coordinator_requests", "whatsapp_subscriptions", "recovery_codes",
 )
 
 
