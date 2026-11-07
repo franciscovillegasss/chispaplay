@@ -213,7 +213,8 @@ class Handler(BaseHTTPRequestHandler):
             suggestion = ai.suggest(body)
             with database(write=True) as db:
                 actor = auth.actor_for(db, token, "coordinator")
-                audit(db, actor, "ficha_ia_generada")
+                action = "ficha_ia_generada" if suggestion["source"] == "local_model" else "ficha_plantilla_generada"
+                audit(db, actor, action)
             return suggestion, None
         if re.fullmatch(r"/api/coordinator/events/[0-9a-f]{32}/attendance", path):
             with database() as db:

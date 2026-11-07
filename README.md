@@ -30,7 +30,7 @@ El seguimiento de navegación está activo para todas las cuentas vecinales. Reg
 
 ## IA local y ficha de actividad
 
-La IA sugiere un resumen breve de por qué ir y un cronograma editable. El coordinador revisa la propuesta antes de publicar. La accesibilidad conserva la información proporcionada por el responsable y sus confirmaciones explícitas.
+La IA sugiere un resumen breve de por qué ir y un cronograma editable. Usa el título, la descripción, la categoría y las edades. La aplicación aplica la sugerencia solo a los campos vacíos. El coordinador revisa la propuesta antes de publicar y conserva el control de la accesibilidad, los horarios y el lugar.
 
 El servicio de IA usa un modelo local con `node-llama-cpp`. Requiere Node.js y un modelo GGUF compatible. Para instalar las dependencias del servicio:
 
@@ -38,7 +38,7 @@ El servicio de IA usa un modelo local con `node-llama-cpp`. Requiere Node.js y u
 npm install --prefix local-ai
 ```
 
-Configura `CHISPA_AI_MODEL_PATH` con la ruta absoluta al modelo y ejecuta `node local-ai/server.mjs`. El servicio escucha únicamente en `127.0.0.1:18747`. La aplicación también admite otro servicio local compatible mediante `CHISPA_AI_URL`. Si la IA está apagada, el coordinador puede completar la ficha manualmente.
+Configura `CHISPA_AI_MODEL_PATH` con la ruta absoluta al modelo y ejecuta `node local-ai/server.mjs` junto a `python server.py`. El servicio escucha únicamente en `127.0.0.1:18747`. Puedes cambiar el puerto con `CHISPA_AI_PORT` y ajustar `CHISPA_AI_URL` en el servidor web. Si el modelo está apagado o devuelve datos inválidos, se ofrece un cronograma básico editable y el coordinador escribe el resumen. El Blueprint de Render publica solo el servidor Python, por lo que usa esa plantilla sin un modelo conectado.
 
 Se ha integrado [Qwen3-0.6B-GGUF de Qwen](https://huggingface.co/Qwen/Qwen3-0.6B-GGUF), que ocupa aproximadamente 610 MiB. El procesamiento local usa memoria y CPU del computador, sin llamadas a una API de pago. La ficha publicada incluye el resumen aprobado, el cronograma, los datos de accesibilidad, una ventana de Google Maps y descarga de calendario ICS o enlace a Google Calendar.
 

@@ -146,20 +146,20 @@ async function renderEvent(id, logView = true) {
         escapeHtml(item.time), escapeHtml(item.activity)
       ]), '') : ''}
       <div class="actions">
-        <button id="save-calendar" class="secondary">Guardar evento en calendario</button>
-        <a class="button secondary" id="google-calendar" href="${escapeHtml(calendarLink(event))}" target="_blank" rel="noopener">Google Calendar</a>
+        ${event.status === 'published' ? `<button id="save-calendar" class="secondary">Guardar evento en calendario</button>
+        <a class="button secondary" id="google-calendar" href="${escapeHtml(calendarLink(event))}" target="_blank" rel="noopener">Google Calendar</a>` : ''}
         <a class="button secondary" href="${escapeHtml(map)}" id="directions" target="_blank" rel="noopener">Ver en el mapa</a>
         <a class="button secondary" href="${escapeHtml(share)}" id="share" target="_blank" rel="noopener">Compartir por WhatsApp</a>
       </div>
     </section>
     <section class="panel"><h2>Ubicación</h2>
       <iframe class="location-map" title="Ubicación de ${escapeHtml(event.venue)} en Google Maps"
-        src="https://maps.google.com/maps?q=${encodeURIComponent(event.venue + ', ' + event.address + ', ' + event.commune + ', Chile')}&amp;output=embed"
+        src="https://maps.google.com/maps?q=${encodeURIComponent(destination)}&amp;output=embed"
         loading="lazy" referrerpolicy="no-referrer" allowfullscreen></iframe>
     </section>
     </div><aside class="lg:col-span-4 lg:sticky lg:top-8">
     <section class="panel ticket-panel"><p class="eyebrow">Pase Vecinal</p><h2>Inscripción</h2>
-      ${alreadyBooked ? '<p class="badge">' + status(booking) + '</p>' : ''}
+      ${alreadyBooked ? '<p class="badge">' + (event.status === 'cancelled' ? 'Actividad cancelada' : status(booking)) + '</p>' : ''}
       ${booking === 'reserved' && event.status === 'published' ? '<p>Presenta tu <a href="/perfil.html">código personal</a> al llegar.</p>' : ''}
       ${booking === 'waiting' && open ? '<p>Si se libera un cupo, el sistema confirma la reserva en orden de inscripción. Revisa el estado en Mi Pase.</p>' : ''}
       ${open && !alreadyBooked ? (user
@@ -180,7 +180,7 @@ async function renderEvent(id, logView = true) {
     saveCalendar(event);
     track('calendario_guardado', id);
   });
-  document.getElementById('google-calendar').addEventListener('click', () => track('calendario_guardado', id));
+  document.getElementById('google-calendar')?.addEventListener('click', () => track('calendario_guardado', id));
   document.getElementById('share').addEventListener('click', () => track('enlace_compartido', id));
   document.getElementById('directions').addEventListener('click', () => track('mapa_abierto', id));
   onClick('reserve', async () => {
@@ -518,7 +518,7 @@ function eventEditor(event = {}) {
         <input name="photo" type="file" accept="image/jpeg,image/png,image/webp">
       </label>
       ${event.photo ? '<label class="check"><input name="remove_photo" type="checkbox"> Quitar foto actual</label>' : ''}
-      <p class="muted">La IA puede sugerir el resumen y un cronograma. Revisa la propuesta antes de publicar. La accesibilidad debe corresponder a las condiciones que verificaste en el lugar.</p>
+      <p class="muted">La sugerencia completa los campos vacíos. Si la IA local está apagada, se ofrece un cronograma básico. Revisa la propuesta y confirma las condiciones de accesibilidad antes de publicar.</p>
       <div class="actions"><button type="button" id="suggest-sheet" class="secondary">Generar ficha sugerida con IA</button>
       <button type="submit">${edit ? 'Guardar cambios' : 'Publicar en cartelera'}</button>
       ${edit ? '<button type="button" class="secondary" id="stop-edit">Cerrar edición</button>' : ''}</div>
@@ -561,20 +561,32 @@ function openEditor(event) {
   });
   onClick('suggest-sheet', async () => {
     const form = document.getElementById('edit-event');
-    if (!form.reportValidity()) return;
+    const inputs = ['title', 'description', 'category', 'ages', 'commune', 'venue', 'address', 'accessibility', 'starts', 'ends'];
+    if (!inputs.every(name => form.elements[name].reportValidity())) return;
     const values = Object.fromEntries(new FormData(form));
-    const facts = Object.fromEntries(['title', 'description', 'commune', 'venue', 'address', 'accessibility'].map(key => [key, values[key]]));
-    facts.starts_label = date(new Date(isoDate(values.starts)).getTime() / 1000);
-    facts.ends_label = date(new Date(isoDate(values.ends)).getTime() / 1000);
+    if (values.why_go.trim() && values.schedule.trim()) {
+      throw new Error('Para sugerir un texto nuevo, deja vacío el resumen o el cronograma que quieras completar.');
+    }
+    const facts = Object.fromEntries(inputs.slice(0, -2).map(name => [name, values[name]]));
     const start = new Date(isoDate(values.starts)).getTime() / 1000;
     const end = new Date(isoDate(values.ends)).getTime() / 1000;
     if (end <= start) throw new Error('El término debe ser posterior al inicio.');
+    facts.starts_label = date(start);
+    facts.ends_label = date(end);
     facts.schedule_times = [values.starts.slice(11), inputDate((start + end) / 2).slice(11), values.ends.slice(11)];
-    notify('La IA está preparando la ficha…');
+    notify('Preparando una sugerencia para la ficha…');
     const suggestion = await api('/api/coordinator/suggest', facts);
-    form.elements.why_go.value = suggestion.why_go;
-    form.elements.schedule.value = suggestion.schedule.map(row => row.time + ' | ' + row.activity).join('\n');
-    notify('Ficha sugerida lista. Revisa el resumen y el cronograma antes de publicar.');
+    if (!form.isConnected) return;
+    if (inputs.some(name => form.elements[name].value !== values[name])) {
+      throw new Error('Los datos de la actividad cambiaron. Vuelve a generar la sugerencia.');
+    }
+    if (!form.elements.why_go.value.trim() && suggestion.why_go) form.elements.why_go.value = suggestion.why_go;
+    if (!form.elements.schedule.value.trim()) {
+      form.elements.schedule.value = suggestion.schedule.map(row => row.time + ' | ' + row.activity).join('\n');
+    }
+    notify(suggestion.source === 'template'
+      ? 'IA local no disponible. Puedes usar el cronograma básico y completar el resumen.'
+      : 'Ficha sugerida lista. Revisa el resumen y el cronograma antes de publicar.');
   });
   onClick('stop-edit', () => openEditor());
 }

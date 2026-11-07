@@ -33,12 +33,14 @@ const server = createServer(async (request, response) => {
   let session;
   let timer;
   try {
-    let raw = '';
+    const chunks = [];
+    let size = 0;
     for await (const chunk of request) {
-      raw += chunk.toString();
-      if (Buffer.byteLength(raw) > 16000) throw new Error('Solicitud demasiado grande.');
+      size += chunk.length;
+      if (size > 16000) throw new Error('Solicitud demasiado grande.');
+      chunks.push(chunk);
     }
-    const body = JSON.parse(raw);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     if (!Array.isArray(body.messages) || body.messages.length !== 2 ||
         !body.messages.every(message => typeof message.content === 'string')) {
       throw new Error('Formato inválido.');
@@ -69,4 +71,5 @@ const server = createServer(async (request, response) => {
   }
 });
 server.requestTimeout = 100000;
-server.listen(18747, '127.0.0.1', () => console.log('IA local lista en 127.0.0.1:18747'));
+const port = Number(process.env.CHISPA_AI_PORT || 18747);
+server.listen(port, '127.0.0.1', () => console.log('IA local lista en 127.0.0.1:' + port));
