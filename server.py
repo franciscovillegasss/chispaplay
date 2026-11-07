@@ -26,6 +26,7 @@ HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8080"))
 ORIGIN = os.environ.get("CHISPA_PUBLIC_ORIGIN", "").rstrip("/")
 LOCAL_HTTP = HOST in ("127.0.0.1", "localhost") and not ORIGIN
+ON_RENDER = os.environ.get("RENDER") == "true" and not LOCAL_HTTP
 COOKIE = "chispa_session" if LOCAL_HTTP else "__Host-chispa_session"
 MAX_BODY = 4 * ((events.MAX_IMAGE + 2) // 3) + 16_384
 PAGES = {"index.html", "actividades.html", "actividad.html", "perfil.html", "nosotros.html", "coordinador.html", "ceo.html"}
@@ -48,7 +49,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", cache)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
-        self.send_header("Content-Security-Policy", "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; frame-src https://maps.google.com https://www.google.com")
+        connect = "; connect-src 'self' http://127.0.0.1:18747" if self.path.split("?", 1)[0] == "/coordinador.html" else ""
+        self.send_header("Content-Security-Policy", "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; frame-src https://maps.google.com https://www.google.com" + connect)
         self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)")
         if not LOCAL_HTTP:
             self.send_header("Strict-Transport-Security", "max-age=31536000")
@@ -146,13 +148,19 @@ class Handler(BaseHTTPRequestHandler):
         return None
 
     def client_ip(self):
-        if os.environ.get("CHISPA_TRUST_PROXY") == "1":
-            value = self.headers.get("X-Forwarded-For", "").split(",")[-1].strip()
-            try:
-                return str(ipaddress.ip_address(value))
-            except ValueError:
-                pass
-        return self.client_address[0]
+        return self.client_network()[0]
+
+    def client_network(self):
+        if ON_RENDER:
+            value, source = self.headers.get("CF-Connecting-IP", "").strip(), "render_edge"
+        elif os.environ.get("CHISPA_TRUST_PROXY") == "1":
+            value, source = self.headers.get("X-Forwarded-For", "").split(",")[-1].strip(), "trusted_proxy"
+        else:
+            return self.client_address[0], "connection"
+        try:
+            return str(ipaddress.ip_address(value)), source
+        except ValueError:
+            return self.client_address[0], "connection"
 
     def get(self, path, params, token):
         with database() as db:
@@ -192,6 +200,10 @@ class Handler(BaseHTTPRequestHandler):
                     FROM bookings b JOIN neighbors n ON n.id=b.neighbor_id
                     WHERE b.event_id=? AND b.status!='cancelled' ORDER BY b.queue_order""", (match[1],))
                 return {"bookings": [dict(r) for r in rows]}
+            if path == "/api/ceo/network":
+                auth.actor_for(db, token, "ceo")
+                ip, source = self.client_network()
+                return {"ip": ip, "source": source}
             if path == "/api/ceo":
                 auth.actor_for(db, token, "ceo")
                 return management.dashboard(db, params.get("search", [""])[0][:100])
@@ -213,7 +225,10 @@ class Handler(BaseHTTPRequestHandler):
             suggestion = ai.suggest(body)
             with database(write=True) as db:
                 actor = auth.actor_for(db, token, "coordinator")
-                action = "ficha_ia_generada" if suggestion["source"] == "local_model" else "ficha_plantilla_generada"
+                if "device_payload" in suggestion:
+                    action = "ficha_ia_dispositivo_solicitada"
+                else:
+                    action = "ficha_ia_generada" if suggestion["source"] == "local_model" else "ficha_plantilla_generada"
                 audit(db, actor, action)
             return suggestion, None
         if re.fullmatch(r"/api/coordinator/events/[0-9a-f]{32}/attendance", path):

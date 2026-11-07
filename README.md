@@ -42,9 +42,24 @@ Configura `CHISPA_AI_MODEL_PATH` con la ruta absoluta al modelo y ejecuta `node 
 
 Se ha integrado [Qwen3-0.6B-GGUF de Qwen](https://huggingface.co/Qwen/Qwen3-0.6B-GGUF), que ocupa aproximadamente 610 MiB. El procesamiento local usa memoria y CPU del computador, sin llamadas a una API de pago. La ficha publicada incluye el resumen aprobado, el cronograma, los datos de accesibilidad, una ventana de Google Maps y descarga de calendario ICS o enlace a Google Calendar.
 
+### Usar la IA del equipo desde la página publicada
+
+Cada coordinador puede instalar el servicio `local-ai` y el modelo en su propio computador. En PowerShell, desde el repositorio, instala las dependencias y arráncalo con el puerto predeterminado:
+
+```powershell
+npm install --prefix local-ai
+$env:CHISPA_AI_MODEL_PATH = 'C:\ruta\Qwen3-0.6B-Q4_K_M.gguf'
+$env:CHISPA_AI_BROWSER_ORIGIN = 'https://chispaplay-eofb.onrender.com'
+node local-ai/server.mjs
+```
+
+Sustituye la ruta del modelo por la de tu archivo GGUF. Si cambias el dominio público, actualiza el origen sin la barra final. Desde el formulario de coordinación, marca «Usar la IA instalada en este equipo» y genera la ficha. Si Chrome o Edge solicita permiso para acceder a este equipo, concédelo al dominio de ChispaPlay. La inferencia se ejecuta en `127.0.0.1:18747`. El sitio sigue usando Render y Supabase para las cuentas, la edición y la publicación.
+
+Para iniciarla automáticamente en Windows, guarda las tres líneas de configuración y arranque en un archivo `.ps1` que use una ruta absoluta al script `server.mjs`. Crea un acceso directo a `pwsh.exe -File "C:\ruta\iniciar-chispaplay-ia.ps1"` y colócalo en `shell:startup`. Con el equipo y el servicio activos, el modelo queda disponible para las solicitudes del coordinador. Si el servicio está apagado o el navegador bloquea el acceso local, la ficha ofrece la plantilla editable.
+
 ## Publicación y estilos
 
-Para publicar se necesita un servidor con HTTPS y un volumen persistente. Configura `HOST`, `CHISPA_PUBLIC_ORIGIN` y `CHISPA_DATA_DIR` en ese entorno. Activa `CHISPA_TRUST_PROXY=1` únicamente si el servidor recibe todas las peticiones desde un proxy de confianza que agrega la IP real del cliente al final de `X-Forwarded-For`.
+Para publicar se necesita un servidor con HTTPS y almacenamiento persistente. En Render, ChispaPlay usa `CF-Connecting-IP` del borde para los límites por IP. El diagnóstico `/api/ceo/network` muestra al CEO únicamente la IP de su propia solicitud y su origen. En otros entornos, activa `CHISPA_TRUST_PROXY=1` únicamente si el servidor recibe todas las peticiones desde un proxy de confianza que agrega la IP real del cliente al final de `X-Forwarded-For`.
 
 El catálogo empieza vacío. Las tablas previas se conservan y los registros de comunas fuera de la RM quedan fuera de la cartelera pública. Los códigos largos anteriores se migran a cinco dígitos conservando las reservas y la identidad interna.
 

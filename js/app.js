@@ -519,6 +519,7 @@ function eventEditor(event = {}) {
       </label>
       ${event.photo ? '<label class="check"><input name="remove_photo" type="checkbox"> Quitar foto actual</label>' : ''}
       <p class="muted">La sugerencia completa los campos vacíos. Si la IA local está apagada, se ofrece un cronograma básico. Revisa la propuesta y confirma las condiciones de accesibilidad antes de publicar.</p>
+      <label class="check"><input type="checkbox" name="device_ai"> Usar la IA instalada en este equipo</label>
       <div class="actions"><button type="button" id="suggest-sheet" class="secondary">Generar ficha sugerida con IA</button>
       <button type="submit">${edit ? 'Guardar cambios' : 'Publicar en cartelera'}</button>
       ${edit ? '<button type="button" class="secondary" id="stop-edit">Cerrar edición</button>' : ''}</div>
@@ -535,11 +536,33 @@ function asDataUrl(file) {
   });
 }
 
+async function suggestOnDevice(suggestion) {
+  try {
+    const response = await fetch('http://127.0.0.1:18747/v1/chat/completions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      credentials: 'omit', targetAddressSpace: 'loopback', signal: AbortSignal.timeout(45000),
+      body: JSON.stringify(suggestion.device_payload)
+    });
+    if (!response.ok) return suggestion;
+    const output = await response.json();
+    const { why_go, schedule } = JSON.parse(output.choices[0].message.content);
+    const clean = value => typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+    const why = clean(why_go);
+    if (!why || why.length > 240 || !Array.isArray(schedule) || schedule.length !== 3) return suggestion;
+    const activities = schedule.map(row => clean(row?.activity));
+    if (activities.some(activity => !activity || activity.length > 180) ||
+        new Set(activities.map(activity => activity.toLowerCase())).size !== 3) return suggestion;
+    return { why_go: why, source: 'device', schedule: suggestion.schedule.map((row, i) => ({ ...row, activity: activities[i] })) };
+  } catch {
+    return suggestion;
+  }
+}
+
 function openEditor(event) {
   const editor = document.getElementById('editor');
   editor.innerHTML = eventEditor(event);
   onForm('edit-event', async fields => {
-    const { photo, remove_photo, ...body } = fields;
+    const { photo, remove_photo, device_ai, ...body } = fields;
     body.starts = isoDate(body.starts);
     body.ends = isoDate(body.ends);
     body.capacity = Number(body.capacity);
@@ -575,7 +598,8 @@ function openEditor(event) {
     facts.ends_label = date(end);
     facts.schedule_times = [values.starts.slice(11), inputDate((start + end) / 2).slice(11), values.ends.slice(11)];
     notify('Preparando una sugerencia para la ficha…');
-    const suggestion = await api('/api/coordinator/suggest', facts);
+    const requested = await api('/api/coordinator/suggest', { ...facts, device: values.device_ai === 'on' });
+    const suggestion = requested.device_payload ? await suggestOnDevice(requested) : requested;
     if (!form.isConnected) return;
     if (inputs.some(name => form.elements[name].value !== values[name])) {
       throw new Error('Los datos de la actividad cambiaron. Vuelve a generar la sugerencia.');
@@ -584,7 +608,7 @@ function openEditor(event) {
     if (!form.elements.schedule.value.trim()) {
       form.elements.schedule.value = suggestion.schedule.map(row => row.time + ' | ' + row.activity).join('\n');
     }
-    notify(suggestion.source === 'template'
+    notify(suggestion.source === 'device' ? 'Ficha sugerida por la IA de este equipo. Revisa el texto antes de publicar.' : suggestion.source === 'template'
       ? 'IA local no disponible. Puedes usar el cronograma básico y completar el resumen.'
       : 'Ficha sugerida lista. Revisa el resumen y el cronograma antes de publicar.');
   });

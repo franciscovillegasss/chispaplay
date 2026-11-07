@@ -8,6 +8,8 @@ if (!modelPath) throw new Error('Configura CHISPA_AI_MODEL_PATH con el archivo G
 const llama = await getLlama({ gpu: false, build: 'never' });
 const model = await llama.loadModel({ modelPath });
 const context = await model.createContext({ contextSize: 4096, sequences: 1, threads: 6 });
+const port = Number(process.env.CHISPA_AI_PORT || 18747);
+const browserOrigin = process.env.CHISPA_AI_BROWSER_ORIGIN;
 let busy = false;
 
 function reply(response, status, body) {
@@ -16,6 +18,23 @@ function reply(response, status, body) {
 }
 
 const server = createServer(async (request, response) => {
+  const origin = request.headers.origin;
+  if (origin) {
+    if (origin !== browserOrigin || request.headers.host !== '127.0.0.1:' + port ||
+        request.url !== '/v1/chat/completions') {
+      reply(response, 403, { error: 'Origen no autorizado.' });
+      return;
+    }
+    response.setHeader('Access-Control-Allow-Origin', origin);
+    response.setHeader('Vary', 'Origin');
+    if (request.method === 'OPTIONS') {
+      response.setHeader('Access-Control-Allow-Methods', 'POST');
+      response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      response.setHeader('Access-Control-Allow-Private-Network', 'true');
+      response.writeHead(204).end();
+      return;
+    }
+  }
   if (request.method === 'GET' && request.url === '/health') {
     reply(response, 200, { status: 'ready' });
     return;
@@ -52,11 +71,11 @@ const server = createServer(async (request, response) => {
       systemPrompt: body.messages[0].content
     });
     const controller = new AbortController();
-    timer = setTimeout(() => controller.abort(), 80000);
+    timer = setTimeout(() => controller.abort(), 40000);
     const output = await session.prompt(body.messages[1].content, {
       grammar,
       temperature: 0.2,
-      maxTokens: 450,
+      maxTokens: 240,
       signal: controller.signal
     });
     grammar.parse(output);
@@ -71,5 +90,4 @@ const server = createServer(async (request, response) => {
   }
 });
 server.requestTimeout = 100000;
-const port = Number(process.env.CHISPA_AI_PORT || 18747);
 server.listen(port, '127.0.0.1', () => console.log('IA local lista en 127.0.0.1:' + port));
