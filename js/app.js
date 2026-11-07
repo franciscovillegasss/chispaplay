@@ -1,4 +1,4 @@
-import { configureGeography, renderDiscovery, renderNavigation } from './editorial.js';
+import { configureGeography, getReferencePosition, renderDiscovery, renderNavigation } from './editorial.js';
 
 const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
@@ -114,8 +114,13 @@ async function renderEvent(id, logView = true) {
   const user = actor?.role === 'neighbor';
   const alreadyBooked = ['reserved', 'waiting', 'attended'].includes(booking);
   const spots = open ? (event.available ? event.available + ' disponibles' : 'Lista de espera disponible') : 'Inscripciones cerradas';
-  const map = 'https://www.google.com/maps/search/?api=1&query=' +
-    encodeURIComponent(event.venue + ', ' + event.address + ', ' + event.commune + ', Chile');
+  const origin = getReferencePosition(event.commune);
+  const destination = event.latitude != null && event.longitude != null
+    ? event.latitude + ',' + event.longitude : event.venue + ', ' + event.address + ', ' + event.commune + ', Chile';
+  const map = 'https://www.google.com/maps/dir/?' + new URLSearchParams({
+    api: '1', destination, travelmode: 'walking',
+    ...(origin ? { origin: origin.latitude + ',' + origin.longitude } : {})
+  });
   const share = 'https://wa.me/?text=' + encodeURIComponent(event.title + ' · ' + date(event.starts) + ' · ' + event.venue +
     ' · ' + new URL(eventUrl(id), location.origin).href);
   const facts = [
@@ -240,27 +245,69 @@ function saveCalendar(event) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function notificationForm(formId, selected = '') {
+  return `<form id="${formId}" class="narrow">
+    <label>Comuna para recibir avisos <select name="commune" aria-label="Comuna para recibir avisos" required>
+      <option value="">Selecciona tu comuna</option>
+      ${communes.map(name => '<option value="' + escapeHtml(name) + '"' + (name === selected ? ' selected' : '') + '>' + escapeHtml(name) + '</option>').join('')}
+    </select></label>
+    <label class="check"><input name="consent" type="checkbox" required> Quiero recibir avisos de actividades de esta comuna por WhatsApp en mi celular registrado.</label>
+    <button type="submit">Recibir notificaciones en WhatsApp</button>
+  </form>`;
+}
+
+function bindNotifications(formId, refresh = false) {
+  onForm(formId, async fields => {
+    await api('/api/me/notifications', { commune: fields.commune, enabled: true, consent: fields.consent === 'on' });
+    if (refresh) await renderProfile();
+    notify('Preferencia guardada. El equipo podrá enviarte la cartelera de ' + fields.commune + ' por WhatsApp.');
+  });
+}
+
+function renderWhatsAppFlyer() {
+  const target = document.getElementById('ranking-section') || document.getElementById('actividades-main-content');
+  if (!target) return;
+  const flyer = document.createElement('section');
+  flyer.id = 'whatsapp-flyer';
+  flyer.className = 'whatsapp-flyer bg-black text-white border-4 border-black p-6 sm:p-8 shadow-[8px_8px_0px_0px_#E11D48] mt-10 mb-8';
+  flyer.innerHTML = `<p class="text-xs font-mono font-black uppercase text-[#E11D48] mb-2">Radar barrial · WhatsApp</p>
+    <h2 class="text-2xl sm:text-3xl font-black uppercase mb-3">Que el próximo panorama te encuentre</h2>
+    <p class="text-sm text-neutral-200 mb-5">Elige tu comuna y recibe avisos de actividades gratuitas. El equipo comparte la cartelera por WhatsApp y puedes cancelar los avisos desde Mi Pase.</p>
+    ${actor?.role === 'neighbor' ? notificationForm('flyer-subscribe') :
+      '<a class="button" href="/perfil.html?notifications=1">Recibir notificaciones en WhatsApp</a>'}`;
+  target.append(flyer);
+  bindNotifications('flyer-subscribe');
+}
+
+function whatsappMessage(subscriber, events) {
+  const next = events.filter(event => event.commune === subscriber.commune && event.status === 'published' && event.starts * 1000 > Date.now())
+    .sort((a, b) => a.starts - b.starts).slice(0, 3);
+  const listing = next.map(event => event.title + '\n' + date(event.starts) + '\n' + event.venue + ', ' + event.address).join('\n\n');
+  return 'Hola ' + subscriber.name + ', esta es la cartelera de ChispaPlay en ' + subscriber.commune + '.\n\n' +
+    listing + '\n\nPuedes cancelar estos avisos desde Mi Pase Vecinal.';
+}
+
 function neighborLogin(register = true) {
   app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Credencial de barrio</p>
     <h1>Mi Pase Vecinal</h1><h2>${register ? 'Crea tu cuenta' : 'Entra a tu cuenta'}</h2>
-    <p>${register ? 'Usa tu nombre y celular para obtener tu código personal de asistencia.' : 'Ingresa el celular con el que creaste tu Pase.'}</p>
+    <p>${register ? 'Usa tu nombre y celular para obtener tu código personal de asistencia.' : 'Ingresa el nombre, celular y contraseña de tu cuenta.'}</p>
     <form id="neighbor-auth">
-      ${register ? '<label>Nombre <input name="name" autocomplete="name" required minlength="2" maxlength="100"></label>' : ''}
+      <label>Nombre <input name="name" autocomplete="${register ? 'name' : 'username'}" required minlength="2" maxlength="100"></label>
       <label>Celular chileno <input name="phone" type="tel" autocomplete="tel" required maxlength="25" placeholder="+56 9 1234 5678"></label>
       <label>Contraseña <input name="password" type="password" autocomplete="${register ? 'new-password' : 'current-password'}" required ${register ? 'minlength="12"' : ''} maxlength="128"></label>
       ${register ? '<div hidden aria-hidden="true"><label>Sitio web <input name="website" autocomplete="off" tabindex="-1"></label></div>' : ''}
-      <p class="muted">ChispaPlay registra la navegación de las cuentas para medir el uso de la cartelera. El historial se conserva durante 90 días.</p>
+      <p class="muted">ChispaPlay registra únicamente tus interacciones dentro de esta página web para medir el uso de la cartelera. No registra tu navegación en otros sitios ni aplicaciones. El historial de esta web se conserva durante 90 días.</p>
       <button type="submit">${register ? 'Crear Pase Vecinal' : 'Iniciar sesión'}</button>
     </form>
     <button id="switch-auth" class="secondary">${register ? 'Ya tengo una cuenta' : 'Crear una cuenta'}</button>
-    <div class="actions"><button id="access-ceo" class="secondary">Acceso de administración</button></div>
   </section>`;
   onClick('switch-auth', () => neighborLogin(!register));
-  onClick('access-ceo', ceoLogin);
   onForm('neighbor-auth', async fields => {
-    ({ actor } = await api('/api/neighbors/' + (register ? 'register' : 'login'), fields));
+    ({ actor } = await api(register ? '/api/neighbors/register' : '/api/account/login', fields));
     renderNavigation(page, actor);
-    if (validId(query.get('activity'))) {
+    if (actor.role === 'ceo') {
+      location.assign('/perfil.html');
+    } else if (validId(query.get('activity'))) {
       location.replace(eventUrl(query.get('activity')));
     } else {
       await renderProfile();
@@ -278,7 +325,7 @@ async function renderProfile() {
     return;
   }
   if (query.get('access') === 'ceo') {
-    ceoLogin();
+    neighborLogin(false);
     return;
   }
   if (actor?.role !== 'neighbor') {
@@ -292,8 +339,7 @@ async function renderProfile() {
       <p>${escapeHtml(actor.phone)}</p><p>Presenta este código cuando llegues a una actividad reservada.</p>
       <code class="code">${escapeHtml(actor.personal_code)}</code>
       <div class="actions"><button class="secondary" id="copy-code">Copiar código</button>
-        <button class="secondary" id="logout">Cerrar sesión</button>
-        <button class="secondary" id="access-ceo">Acceso de administración</button></div>
+        <button class="secondary" id="logout">Cerrar sesión</button></div>
     </section>
     <section class="panel"><h2>Mis actividades</h2>
       ${table(['Actividad', 'Horario', 'Estado'], data.bookings.map(item => [
@@ -307,11 +353,26 @@ async function renderProfile() {
         escapeHtml(item.id), escapeHtml(item.title), status(item.status)
       ]), 'Todavía no has enviado reportes.')}
     </section>
+    <section class="panel" id="notifications"><h2>Avisos por WhatsApp</h2>
+      ${notificationForm('profile-subscribe')}
+      ${table(['Comuna', 'Estado', 'Preferencia'], data.notifications.map((item, index) => [
+        escapeHtml(item.commune), item.active ? 'Avisos activados' : 'Avisos desactivados',
+        item.active ? '<button class="secondary" id="unsubscribe-' + index + '">Cancelar avisos</button>' : ''
+      ]), 'Todavía no elegiste una comuna para recibir avisos.')}
+    </section>
     <section class="panel narrow"><h2>Uso de la cartelera</h2>
-      <p>Registramos las aperturas de la cartelera y fichas, el uso de filtros y los clics en mapa, calendario y compartir durante 90 días. Las reservas, asistencias y reportes se conservan como operaciones del servicio.</p>
+      <p>Registramos únicamente las aperturas de la cartelera y fichas, el uso de filtros y los clics en mapa, calendario y compartir dentro de ChispaPlay durante 90 días. No registramos la navegación fuera de esta web. Las reservas, asistencias y reportes se conservan como operaciones del servicio.</p>
     </section>`;
   signOut();
-  onClick('access-ceo', ceoLogin);
+  bindNotifications('profile-subscribe', true);
+  for (const [index, item] of data.notifications.entries()) {
+    onClick('unsubscribe-' + index, async () => {
+      await api('/api/me/notifications', { commune: item.commune, enabled: false });
+      await renderProfile();
+      notify('Avisos de ' + item.commune + ' desactivados.');
+    });
+  }
+  if (query.has('notifications')) document.getElementById('notifications').scrollIntoView();
   onClick('copy-code', async () => {
     await navigator.clipboard.writeText(actor.personal_code);
     notify('Código copiado.');
@@ -331,22 +392,6 @@ function staffLogin(role) {
   onForm('staff-login', async fields => {
     ({ actor } = await api('/api/staff/login', { ...fields, role }));
     await renderStaff(role);
-  });
-}
-
-function ceoLogin() {
-  app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Mi Pase · Administración</p>
-    <h1>Acceso CEO</h1><form id="ceo-login">
-      <label>Nombre de usuario <input name="username" autocomplete="username" required maxlength="64"></label>
-      <label>Teléfono <input name="phone" type="tel" autocomplete="tel" required maxlength="25"></label>
-      <label>Contraseña <input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
-      <button type="submit">Ingresar al panel CEO</button>
-    </form><div class="actions"><button id="back-to-pass" class="secondary">Volver a Mi Pase</button></div>
-  </section>`;
-  onClick('back-to-pass', () => neighborLogin(false));
-  onForm('ceo-login', async fields => {
-    ({ actor } = await api('/api/ceo/login', fields));
-    location.assign('/ceo.html');
   });
 }
 
@@ -685,6 +730,15 @@ async function renderCEO(search = '') {
       ]), 'No hay vecinos para esta búsqueda.')}
     </section>
     <section class="panel" id="neighbor-history" hidden></section>
+    <section class="panel"><h2>Avisos de WhatsApp</h2>
+      <p class="muted">Los mensajes se abren en WhatsApp para que el equipo revise y envíe la cartelera. Se incluyen hasta tres próximas actividades de la comuna.</p>
+      ${table(['Vecino', 'Celular', 'Comuna', 'Cartelera'], data.whatsapp.map(item => {
+        const available = data.events.some(event => event.commune === item.commune && event.status === 'published' && event.starts * 1000 > Date.now());
+        const href = 'https://wa.me/' + item.phone.replace(/[^0-9]/g, '') + '?text=' + encodeURIComponent(whatsappMessage(item, data.events));
+        return [escapeHtml(item.name), escapeHtml(item.phone), escapeHtml(item.commune),
+          available ? '<a class="button secondary" target="_blank" rel="noopener" href="' + escapeHtml(href) + '">Preparar mensaje</a>' : 'Sin actividades próximas'];
+      }), 'No hay suscripciones activas.')}
+    </section>
     <section class="panel"><h2>Solicitudes de gestión comunitaria</h2>
       ${table(['Responsable', 'Contacto', 'Organización', 'Motivo', 'Decisión'], data.requests.map((item, index) => [
         escapeHtml(item.name) + '<br>' + escapeHtml(item.username), escapeHtml(item.phone),
@@ -807,11 +861,12 @@ async function start() {
     ]);
     actor = sessionData.actor;
     communes = geographyData.communes;
-    configureGeography(communes, catalogData.events);
+    configureGeography(communes, catalogData.events, geographyData.references);
     renderNavigation(page, actor);
     if (page === 'home' || page === 'catalog') {
       const events = catalogData.events;
       renderDiscovery(page, events, track);
+      renderWhatsAppFlyer();
     }
     if (page === 'event') await renderEvent(query.get('id'));
     if (page === 'profile') await renderProfile();

@@ -229,3 +229,18 @@ def request_coordinator(body, ip):
         except sqlite3.IntegrityError:
             raise APIError(409, "Ya existe una solicitud para ese usuario.") from None
     return {"status": "pending"}
+
+
+def login_account(body, ip, previous):
+    phone = phone_number(body.get("phone"))
+    name = field(body, "name", "el nombre de la cuenta", 120, 2)
+    with database() as db:
+        ceo = db.execute("SELECT 1 FROM staff WHERE role='ceo' AND active=1 AND phone=?", (phone,)).fetchone()
+    try:
+        if ceo:
+            return login_ceo({"username": name, "phone": phone, "password": body.get("password")}, ip, previous)
+        return login_neighbor(body, ip, previous)
+    except APIError as error:
+        if error.status == 401:
+            raise APIError(401, "Nombre, celular o contraseña incorrectos.") from None
+        raise

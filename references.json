@@ -1,0 +1,1198 @@
+{
+  "Alhué": [
+    {
+      "id": "ref-node-775929294",
+      "name": "Ilustre Municipalidad de Alhué",
+      "latitude": -34.032271,
+      "longitude": -71.098629,
+      "source": "https://www.openstreetmap.org/node/775929294"
+    },
+    {
+      "id": "ref-way-205745575",
+      "name": "Museo de Alhué",
+      "latitude": -34.031719,
+      "longitude": -71.099026,
+      "source": "https://www.openstreetmap.org/way/205745575"
+    },
+    {
+      "id": "ref-way-1329519543",
+      "name": "Parque Comunal de Alhué",
+      "latitude": -34.029767,
+      "longitude": -71.096653,
+      "source": "https://www.openstreetmap.org/way/1329519543"
+    }
+  ],
+  "Buin": [
+    {
+      "id": "ref-way-844884013",
+      "name": "Ilustre Municipalidad de Buin",
+      "latitude": -33.731129,
+      "longitude": -70.741387,
+      "source": "https://www.openstreetmap.org/way/844884013"
+    },
+    {
+      "id": "ref-node-1333167228",
+      "name": "Museo Andino",
+      "latitude": -33.724806,
+      "longitude": -70.673421,
+      "source": "https://www.openstreetmap.org/node/1333167228"
+    },
+    {
+      "id": "ref-node-5215345941",
+      "name": "Estación Linderos",
+      "latitude": -33.763488,
+      "longitude": -70.734846,
+      "source": "https://www.openstreetmap.org/node/5215345941"
+    }
+  ],
+  "Calera de Tango": [
+    {
+      "id": "ref-way-526883293",
+      "name": "Ilustre Municipalidad de Calera de Tango",
+      "latitude": -33.630553,
+      "longitude": -70.761455,
+      "source": "https://www.openstreetmap.org/way/526883293"
+    },
+    {
+      "id": "ref-node-2288125346",
+      "name": "Iglesia Jesuita",
+      "latitude": -33.63742,
+      "longitude": -70.803236,
+      "source": "https://www.openstreetmap.org/node/2288125346"
+    },
+    {
+      "id": "ref-way-597025507",
+      "name": "Parque Los Bajos de San Agustín",
+      "latitude": -33.6312,
+      "longitude": -70.758206,
+      "source": "https://www.openstreetmap.org/way/597025507"
+    }
+  ],
+  "Cerrillos": [
+    {
+      "id": "ref-way-126118090",
+      "name": "Parque Bicentenario Cerrillos",
+      "latitude": -33.491686,
+      "longitude": -70.69748,
+      "source": "https://www.openstreetmap.org/way/126118090"
+    },
+    {
+      "id": "ref-way-191983673",
+      "name": "Museo Nacional Aeronáutico y del Espacio",
+      "latitude": -33.487628,
+      "longitude": -70.697058,
+      "source": "https://www.openstreetmap.org/way/191983673"
+    },
+    {
+      "id": "ref-way-170295384",
+      "name": "Parque Lo Errázuriz",
+      "latitude": -33.48572,
+      "longitude": -70.723961,
+      "source": "https://www.openstreetmap.org/way/170295384"
+    }
+  ],
+  "Cerro Navia": [
+    {
+      "id": "ref-way-193732998",
+      "name": "Ilustre Municipalidad de Cerro Navia",
+      "latitude": -33.434292,
+      "longitude": -70.728916,
+      "source": "https://www.openstreetmap.org/way/193732998"
+    },
+    {
+      "id": "ref-way-408115179",
+      "name": "Parque La Hondonada",
+      "latitude": -33.425889,
+      "longitude": -70.759923,
+      "source": "https://www.openstreetmap.org/way/408115179"
+    },
+    {
+      "id": "ref-way-1204054734",
+      "name": "Parque Mapocho Río Tramo 6",
+      "latitude": -33.41367,
+      "longitude": -70.76112,
+      "source": "https://www.openstreetmap.org/way/1204054734"
+    }
+  ],
+  "Colina": [
+    {
+      "id": "ref-way-330416905",
+      "name": "Ilustre Municipalidad de Colina",
+      "latitude": -33.205117,
+      "longitude": -70.683985,
+      "source": "https://www.openstreetmap.org/way/330416905"
+    },
+    {
+      "id": "ref-way-964081844",
+      "name": "Parque Río Colina",
+      "latitude": -33.20184,
+      "longitude": -70.665057,
+      "source": "https://www.openstreetmap.org/way/964081844"
+    },
+    {
+      "id": "ref-way-1354808824",
+      "name": "Museo Campesino de Liray",
+      "latitude": -33.239741,
+      "longitude": -70.740218,
+      "source": "https://www.openstreetmap.org/way/1354808824"
+    }
+  ],
+  "Conchalí": [
+    {
+      "id": "ref-way-1230191835",
+      "name": "Ilustre Municipalidad de Conchalí",
+      "latitude": -33.39633,
+      "longitude": -70.670966,
+      "source": "https://www.openstreetmap.org/way/1230191835"
+    },
+    {
+      "id": "ref-node-6228531283",
+      "name": "Metro Conchalí",
+      "latitude": -33.39789,
+      "longitude": -70.6696,
+      "source": "https://www.openstreetmap.org/node/6228531283"
+    },
+    {
+      "id": "ref-way-225573652",
+      "name": "Parque Las Rosas",
+      "latitude": -33.366362,
+      "longitude": -70.692357,
+      "source": "https://www.openstreetmap.org/way/225573652"
+    }
+  ],
+  "Curacaví": [
+    {
+      "id": "ref-way-749933627",
+      "name": "Ilustre Municipalidad de Curacaví",
+      "latitude": -33.404923,
+      "longitude": -71.13674,
+      "source": "https://www.openstreetmap.org/way/749933627"
+    },
+    {
+      "id": "ref-way-1198724332",
+      "name": "La Casona de Curacaví",
+      "latitude": -33.406044,
+      "longitude": -71.13761,
+      "source": "https://www.openstreetmap.org/way/1198724332"
+    },
+    {
+      "id": "ref-node-11119520176",
+      "name": "Parque San Mateo",
+      "latitude": -33.398911,
+      "longitude": -71.120818,
+      "source": "https://www.openstreetmap.org/node/11119520176"
+    }
+  ],
+  "El Bosque": [
+    {
+      "id": "ref-way-584786776",
+      "name": "Ilustre Municipalidad de El Bosque",
+      "latitude": -33.556542,
+      "longitude": -70.665445,
+      "source": "https://www.openstreetmap.org/way/584786776"
+    },
+    {
+      "id": "ref-node-4746169757",
+      "name": "Estación Lo Blanco",
+      "latitude": -33.572719,
+      "longitude": -70.698293,
+      "source": "https://www.openstreetmap.org/node/4746169757"
+    },
+    {
+      "id": "ref-way-243437617",
+      "name": "Plaza Población Juan Pablo II",
+      "latitude": -33.581729,
+      "longitude": -70.670445,
+      "source": "https://www.openstreetmap.org/way/243437617"
+    }
+  ],
+  "El Monte": [
+    {
+      "id": "ref-node-2428449877",
+      "name": "Ilustre Municipalidad de El Monte",
+      "latitude": -33.678837,
+      "longitude": -70.978939,
+      "source": "https://www.openstreetmap.org/node/2428449877"
+    },
+    {
+      "id": "ref-node-13679768983",
+      "name": "Estación Chiñigüe",
+      "latitude": -33.689694,
+      "longitude": -71.083871,
+      "source": "https://www.openstreetmap.org/node/13679768983"
+    },
+    {
+      "id": "ref-way-584492705",
+      "name": "Plaza de Armas de El Monte",
+      "latitude": -33.678181,
+      "longitude": -70.978293,
+      "source": "https://www.openstreetmap.org/way/584492705"
+    }
+  ],
+  "Estación Central": [
+    {
+      "id": "ref-node-252528391",
+      "name": "Estación Central",
+      "latitude": -33.450823,
+      "longitude": -70.678962,
+      "source": "https://www.openstreetmap.org/node/252528391"
+    },
+    {
+      "id": "ref-way-823666023",
+      "name": "Parque Ortuzano",
+      "latitude": -33.469839,
+      "longitude": -70.732685,
+      "source": "https://www.openstreetmap.org/way/823666023"
+    },
+    {
+      "id": "ref-node-10822849636",
+      "name": "Museo Jedimar",
+      "latitude": -33.453419,
+      "longitude": -70.686336,
+      "source": "https://www.openstreetmap.org/node/10822849636"
+    }
+  ],
+  "Huechuraba": [
+    {
+      "id": "ref-way-1199994513",
+      "name": "Ilustre Municipalidad de Huechuraba",
+      "latitude": -33.375258,
+      "longitude": -70.634902,
+      "source": "https://www.openstreetmap.org/way/1199994513"
+    },
+    {
+      "id": "ref-way-384720855",
+      "name": "Parque Avenida Pedro Fontova",
+      "latitude": -33.347482,
+      "longitude": -70.670586,
+      "source": "https://www.openstreetmap.org/way/384720855"
+    },
+    {
+      "id": "ref-node-6938501880",
+      "name": "Museo de la Vivienda Tradicional Local",
+      "latitude": -33.373687,
+      "longitude": -70.605876,
+      "source": "https://www.openstreetmap.org/node/6938501880"
+    }
+  ],
+  "Independencia": [
+    {
+      "id": "ref-node-2053454550",
+      "name": "Ilustre Municipalidad de Independencia",
+      "latitude": -33.42236,
+      "longitude": -70.655099,
+      "source": "https://www.openstreetmap.org/node/2053454550"
+    },
+    {
+      "id": "ref-node-6228531280",
+      "name": "Metro Plaza Chacabuco",
+      "latitude": -33.406771,
+      "longitude": -70.660969,
+      "source": "https://www.openstreetmap.org/node/6228531280"
+    },
+    {
+      "id": "ref-way-607830861",
+      "name": "Plaza Reina María",
+      "latitude": -33.403423,
+      "longitude": -70.677579,
+      "source": "https://www.openstreetmap.org/way/607830861"
+    }
+  ],
+  "Isla de Maipo": [
+    {
+      "id": "ref-way-566143608",
+      "name": "Ilustre Municipalidad de Isla de Maipo",
+      "latitude": -33.755507,
+      "longitude": -70.897412,
+      "source": "https://www.openstreetmap.org/way/566143608"
+    },
+    {
+      "id": "ref-way-550973434",
+      "name": "Plaza de Armas La Islita",
+      "latitude": -33.741152,
+      "longitude": -70.862656,
+      "source": "https://www.openstreetmap.org/way/550973434"
+    },
+    {
+      "id": "ref-way-125569684",
+      "name": "Museo del Vino, Viña Tarapacá",
+      "latitude": -33.769286,
+      "longitude": -70.926388,
+      "source": "https://www.openstreetmap.org/way/125569684"
+    }
+  ],
+  "La Cisterna": [
+    {
+      "id": "ref-way-279026914",
+      "name": "Ilustre Municipalidad de La Cisterna",
+      "latitude": -33.534761,
+      "longitude": -70.66444,
+      "source": "https://www.openstreetmap.org/way/279026914"
+    },
+    {
+      "id": "ref-node-301699842",
+      "name": "Metro Lo Ovalle",
+      "latitude": -33.51727,
+      "longitude": -70.658821,
+      "source": "https://www.openstreetmap.org/node/301699842"
+    },
+    {
+      "id": "ref-way-639555345",
+      "name": "Plaza Torreblanca",
+      "latitude": -33.547995,
+      "longitude": -70.653635,
+      "source": "https://www.openstreetmap.org/way/639555345"
+    }
+  ],
+  "La Florida": [
+    {
+      "id": "ref-node-256999811",
+      "name": "Metro Bellavista de La Florida",
+      "latitude": -33.519522,
+      "longitude": -70.600025,
+      "source": "https://www.openstreetmap.org/node/256999811"
+    },
+    {
+      "id": "ref-node-256377970",
+      "name": "Metro Los Quillayes",
+      "latitude": -33.561225,
+      "longitude": -70.58527,
+      "source": "https://www.openstreetmap.org/node/256377970"
+    },
+    {
+      "id": "ref-way-547698195",
+      "name": "Casa de la Cultura de La Florida",
+      "latitude": -33.515951,
+      "longitude": -70.588995,
+      "source": "https://www.openstreetmap.org/way/547698195"
+    }
+  ],
+  "La Granja": [
+    {
+      "id": "ref-way-451963919",
+      "name": "Centro Cultural Espacio Matta",
+      "latitude": -33.543715,
+      "longitude": -70.632785,
+      "source": "https://www.openstreetmap.org/way/451963919"
+    },
+    {
+      "id": "ref-way-39633984",
+      "name": "Museo Interactivo Mirador",
+      "latitude": -33.518857,
+      "longitude": -70.613409,
+      "source": "https://www.openstreetmap.org/way/39633984"
+    },
+    {
+      "id": "ref-way-36589030",
+      "name": "Parque San Gregorio",
+      "latitude": -33.537905,
+      "longitude": -70.619725,
+      "source": "https://www.openstreetmap.org/way/36589030"
+    }
+  ],
+  "La Pintana": [
+    {
+      "id": "ref-way-192294478",
+      "name": "Ilustre Municipalidad de La Pintana",
+      "latitude": -33.584677,
+      "longitude": -70.629723,
+      "source": "https://www.openstreetmap.org/way/192294478"
+    },
+    {
+      "id": "ref-way-192295101",
+      "name": "Parque Mapuhue",
+      "latitude": -33.591571,
+      "longitude": -70.62939,
+      "source": "https://www.openstreetmap.org/way/192295101"
+    },
+    {
+      "id": "ref-way-233008074",
+      "name": "Parque La Platina",
+      "latitude": -33.566337,
+      "longitude": -70.612679,
+      "source": "https://www.openstreetmap.org/way/233008074"
+    }
+  ],
+  "La Reina": [
+    {
+      "id": "ref-way-50781123",
+      "name": "Ilustre Municipalidad de La Reina",
+      "latitude": -33.453377,
+      "longitude": -70.530601,
+      "source": "https://www.openstreetmap.org/way/50781123"
+    },
+    {
+      "id": "ref-node-252981546",
+      "name": "Metro Simón Bolívar",
+      "latitude": -33.446185,
+      "longitude": -70.571926,
+      "source": "https://www.openstreetmap.org/node/252981546"
+    },
+    {
+      "id": "ref-way-220750456",
+      "name": "Parque Padre Hurtado",
+      "latitude": -33.43145,
+      "longitude": -70.545005,
+      "source": "https://www.openstreetmap.org/way/220750456"
+    }
+  ],
+  "Lampa": [
+    {
+      "id": "ref-way-826395408",
+      "name": "Ilustre Municipalidad de Lampa",
+      "latitude": -33.284886,
+      "longitude": -70.878341,
+      "source": "https://www.openstreetmap.org/way/826395408"
+    },
+    {
+      "id": "ref-node-11982461968",
+      "name": "Estación Batuco",
+      "latitude": -33.239852,
+      "longitude": -70.814373,
+      "source": "https://www.openstreetmap.org/node/11982461968"
+    },
+    {
+      "id": "ref-node-11982461967",
+      "name": "Estación Colina",
+      "latitude": -33.290886,
+      "longitude": -70.769362,
+      "source": "https://www.openstreetmap.org/node/11982461967"
+    }
+  ],
+  "Las Condes": [
+    {
+      "id": "ref-way-112310649",
+      "name": "Ilustre Municipalidad de Las Condes",
+      "latitude": -33.416009,
+      "longitude": -70.594791,
+      "source": "https://www.openstreetmap.org/way/112310649"
+    },
+    {
+      "id": "ref-way-22371383",
+      "name": "Parque Araucano",
+      "latitude": -33.403446,
+      "longitude": -70.57544,
+      "source": "https://www.openstreetmap.org/way/22371383"
+    },
+    {
+      "id": "ref-node-390998425",
+      "name": "Metro Hernando de Magallanes",
+      "latitude": -33.407935,
+      "longitude": -70.555845,
+      "source": "https://www.openstreetmap.org/node/390998425"
+    }
+  ],
+  "Lo Barnechea": [
+    {
+      "id": "ref-way-446011744",
+      "name": "Ilustre Municipalidad de Lo Barnechea",
+      "latitude": -33.353438,
+      "longitude": -70.52015,
+      "source": "https://www.openstreetmap.org/way/446011744"
+    },
+    {
+      "id": "ref-way-454056045",
+      "name": "Centro Cultural De Lo Barnechea",
+      "latitude": -33.357636,
+      "longitude": -70.506974,
+      "source": "https://www.openstreetmap.org/way/454056045"
+    },
+    {
+      "id": "ref-way-1044529154",
+      "name": "Parque Estero El Arrayán",
+      "latitude": -33.339014,
+      "longitude": -70.470074,
+      "source": "https://www.openstreetmap.org/way/1044529154"
+    }
+  ],
+  "Lo Espejo": [
+    {
+      "id": "ref-way-447718411",
+      "name": "Ilustre Municipalidad de Lo Espejo",
+      "latitude": -33.524878,
+      "longitude": -70.695473,
+      "source": "https://www.openstreetmap.org/way/447718411"
+    },
+    {
+      "id": "ref-node-4753977083",
+      "name": "Estación Lo Espejo",
+      "latitude": -33.514527,
+      "longitude": -70.685882,
+      "source": "https://www.openstreetmap.org/node/4753977083"
+    },
+    {
+      "id": "ref-way-319762778",
+      "name": "Parque Autopista Central",
+      "latitude": -33.510807,
+      "longitude": -70.699105,
+      "source": "https://www.openstreetmap.org/way/319762778"
+    }
+  ],
+  "Lo Prado": [
+    {
+      "id": "ref-way-255822977",
+      "name": "Municipalidad de Lo Prado",
+      "latitude": -33.442686,
+      "longitude": -70.718299,
+      "source": "https://www.openstreetmap.org/way/255822977"
+    },
+    {
+      "id": "ref-node-253282379",
+      "name": "Metro Las Rejas",
+      "latitude": -33.457518,
+      "longitude": -70.706665,
+      "source": "https://www.openstreetmap.org/node/253282379"
+    },
+    {
+      "id": "ref-way-450375170",
+      "name": "Plaza Ricardo Vial",
+      "latitude": -33.441431,
+      "longitude": -70.740196,
+      "source": "https://www.openstreetmap.org/way/450375170"
+    }
+  ],
+  "Macul": [
+    {
+      "id": "ref-way-574900951",
+      "name": "Ilustre Municipalidad de Macul",
+      "latitude": -33.481842,
+      "longitude": -70.599679,
+      "source": "https://www.openstreetmap.org/way/574900951"
+    },
+    {
+      "id": "ref-node-253295163",
+      "name": "Metro Pedrero",
+      "latitude": -33.50795,
+      "longitude": -70.612447,
+      "source": "https://www.openstreetmap.org/node/253295163"
+    },
+    {
+      "id": "ref-node-256372848",
+      "name": "Metro Grecia",
+      "latitude": -33.469534,
+      "longitude": -70.576503,
+      "source": "https://www.openstreetmap.org/node/256372848"
+    }
+  ],
+  "Maipú": [
+    {
+      "id": "ref-way-175940910",
+      "name": "Templo Votivo de Maipú",
+      "latitude": -33.510797,
+      "longitude": -70.766182,
+      "source": "https://www.openstreetmap.org/way/175940910"
+    },
+    {
+      "id": "ref-way-24529838",
+      "name": "Parque Tres Poniente",
+      "latitude": -33.526242,
+      "longitude": -70.777842,
+      "source": "https://www.openstreetmap.org/way/24529838"
+    },
+    {
+      "id": "ref-way-494308468",
+      "name": "Parque Ciudad Satélite 2",
+      "latitude": -33.55684,
+      "longitude": -70.79168,
+      "source": "https://www.openstreetmap.org/way/494308468"
+    }
+  ],
+  "María Pinto": [
+    {
+      "id": "ref-way-571106932",
+      "name": "Ilustre Municipalidad de María Pinto",
+      "latitude": -33.516881,
+      "longitude": -71.123881,
+      "source": "https://www.openstreetmap.org/way/571106932"
+    },
+    {
+      "id": "ref-way-737154866",
+      "name": "Santa Rita de Casia",
+      "latitude": -33.461772,
+      "longitude": -71.080787,
+      "source": "https://www.openstreetmap.org/way/737154866"
+    },
+    {
+      "id": "ref-way-570785438",
+      "name": "Iglesia El Carmen",
+      "latitude": -33.488499,
+      "longitude": -71.185899,
+      "source": "https://www.openstreetmap.org/way/570785438"
+    }
+  ],
+  "Melipilla": [
+    {
+      "id": "ref-node-3386213646",
+      "name": "Ilustre Municipalidad de Melipilla",
+      "latitude": -33.685668,
+      "longitude": -71.217068,
+      "source": "https://www.openstreetmap.org/node/3386213646"
+    },
+    {
+      "id": "ref-node-13679768984",
+      "name": "Estación Puangue",
+      "latitude": -33.64813,
+      "longitude": -71.356529,
+      "source": "https://www.openstreetmap.org/node/13679768984"
+    },
+    {
+      "id": "ref-way-1272954336",
+      "name": "Las Palmeras de Culiprán",
+      "latitude": -33.791476,
+      "longitude": -71.252857,
+      "source": "https://www.openstreetmap.org/way/1272954336"
+    }
+  ],
+  "Ñuñoa": [
+    {
+      "id": "ref-way-23591946",
+      "name": "Plaza Ñuñoa",
+      "latitude": -33.456039,
+      "longitude": -70.593915,
+      "source": "https://www.openstreetmap.org/way/23591946"
+    },
+    {
+      "id": "ref-node-3932022758",
+      "name": "Metro Estadio Nacional",
+      "latitude": -33.462381,
+      "longitude": -70.606218,
+      "source": "https://www.openstreetmap.org/node/3932022758"
+    },
+    {
+      "id": "ref-node-252981541",
+      "name": "Metro Príncipe de Gales",
+      "latitude": -33.439205,
+      "longitude": -70.57315,
+      "source": "https://www.openstreetmap.org/node/252981541"
+    }
+  ],
+  "Padre Hurtado": [
+    {
+      "id": "ref-node-3381611008",
+      "name": "Ilustre Municipalidad de Padre Hurtado",
+      "latitude": -33.577775,
+      "longitude": -70.824555,
+      "source": "https://www.openstreetmap.org/node/3381611008"
+    },
+    {
+      "id": "ref-way-1364737173",
+      "name": "Parque El Trebal \"Gabriela Varas de Marín\"",
+      "latitude": -33.541491,
+      "longitude": -70.828419,
+      "source": "https://www.openstreetmap.org/way/1364737173"
+    },
+    {
+      "id": "ref-way-943411041",
+      "name": "Parque Las Compuertas",
+      "latitude": -33.567385,
+      "longitude": -70.833551,
+      "source": "https://www.openstreetmap.org/way/943411041"
+    }
+  ],
+  "Paine": [
+    {
+      "id": "ref-way-112427159",
+      "name": "Ilustre Municipalidad de Paine",
+      "latitude": -33.807496,
+      "longitude": -70.741531,
+      "source": "https://www.openstreetmap.org/way/112427159"
+    },
+    {
+      "id": "ref-node-12408522628",
+      "name": "Museo Vivo de la Biodiversidad",
+      "latitude": -33.868854,
+      "longitude": -70.922511,
+      "source": "https://www.openstreetmap.org/node/12408522628"
+    },
+    {
+      "id": "ref-node-318418135",
+      "name": "Estación Hospital",
+      "latitude": -33.868085,
+      "longitude": -70.74582,
+      "source": "https://www.openstreetmap.org/node/318418135"
+    }
+  ],
+  "Pedro Aguirre Cerda": [
+    {
+      "id": "ref-way-319504827",
+      "name": "Ilustre Municipalidad de Pedro Aguirre Cerda",
+      "latitude": -33.488152,
+      "longitude": -70.664003,
+      "source": "https://www.openstreetmap.org/way/319504827"
+    },
+    {
+      "id": "ref-node-3670590083",
+      "name": "Metro Lo Valledor",
+      "latitude": -33.478405,
+      "longitude": -70.6809,
+      "source": "https://www.openstreetmap.org/node/3670590083"
+    },
+    {
+      "id": "ref-way-90955392",
+      "name": "Parque André Jarlan",
+      "latitude": -33.485818,
+      "longitude": -70.670028,
+      "source": "https://www.openstreetmap.org/way/90955392"
+    }
+  ],
+  "Peñaflor": [
+    {
+      "id": "ref-way-254405121",
+      "name": "Ilustre Municipalidad de Peñaflor",
+      "latitude": -33.607814,
+      "longitude": -70.900876,
+      "source": "https://www.openstreetmap.org/way/254405121"
+    },
+    {
+      "id": "ref-node-9063606505",
+      "name": "Estación Malloco",
+      "latitude": -33.607927,
+      "longitude": -70.858413,
+      "source": "https://www.openstreetmap.org/node/9063606505"
+    },
+    {
+      "id": "ref-way-82225158",
+      "name": "Plazoleta El Prado",
+      "latitude": -33.599884,
+      "longitude": -70.878066,
+      "source": "https://www.openstreetmap.org/way/82225158"
+    }
+  ],
+  "Peñalolén": [
+    {
+      "id": "ref-way-622839469",
+      "name": "Ilustre Municipalidad de Peñalolén",
+      "latitude": -33.476941,
+      "longitude": -70.541686,
+      "source": "https://www.openstreetmap.org/way/622839469"
+    },
+    {
+      "id": "ref-way-111293916",
+      "name": "Museo de Sitio y Parque por la Paz Villa Grimaldi",
+      "latitude": -33.463385,
+      "longitude": -70.542365,
+      "source": "https://www.openstreetmap.org/way/111293916"
+    },
+    {
+      "id": "ref-way-985183745",
+      "name": "Parque de Peñalolén",
+      "latitude": -33.466935,
+      "longitude": -70.541766,
+      "source": "https://www.openstreetmap.org/way/985183745"
+    }
+  ],
+  "Pirque": [
+    {
+      "id": "ref-node-597928361",
+      "name": "Ilustre Municipalidad de Pirque",
+      "latitude": -33.634704,
+      "longitude": -70.572839,
+      "source": "https://www.openstreetmap.org/node/597928361"
+    },
+    {
+      "id": "ref-node-12519077099",
+      "name": "Museo Rural de Pirque",
+      "latitude": -33.717285,
+      "longitude": -70.541538,
+      "source": "https://www.openstreetmap.org/node/12519077099"
+    },
+    {
+      "id": "ref-way-652147401",
+      "name": "Parque Vicente Huidobro",
+      "latitude": -33.697261,
+      "longitude": -70.562811,
+      "source": "https://www.openstreetmap.org/way/652147401"
+    }
+  ],
+  "Providencia": [
+    {
+      "id": "ref-node-775929434",
+      "name": "Ilustre Municipalidad de Providencia",
+      "latitude": -33.432212,
+      "longitude": -70.609894,
+      "source": "https://www.openstreetmap.org/node/775929434"
+    },
+    {
+      "id": "ref-way-582417570",
+      "name": "Parque Inés de Suárez",
+      "latitude": -33.440584,
+      "longitude": -70.611536,
+      "source": "https://www.openstreetmap.org/way/582417570"
+    },
+    {
+      "id": "ref-way-197933423",
+      "name": "Parque de las Esculturas",
+      "latitude": -33.420263,
+      "longitude": -70.613151,
+      "source": "https://www.openstreetmap.org/way/197933423"
+    }
+  ],
+  "Pudahuel": [
+    {
+      "id": "ref-way-255809203",
+      "name": "Ilustre Municipalidad de Pudahuel",
+      "latitude": -33.446328,
+      "longitude": -70.743175,
+      "source": "https://www.openstreetmap.org/way/255809203"
+    },
+    {
+      "id": "ref-node-663684593",
+      "name": "Lomas de Lo Aguirre",
+      "latitude": -33.457125,
+      "longitude": -70.821378,
+      "source": "https://www.openstreetmap.org/node/663684593"
+    },
+    {
+      "id": "ref-way-1444604500",
+      "name": "Parque Laguna Urbanya",
+      "latitude": -33.392249,
+      "longitude": -70.832598,
+      "source": "https://www.openstreetmap.org/way/1444604500"
+    }
+  ],
+  "Puente Alto": [
+    {
+      "id": "ref-node-491641302",
+      "name": "Metro Plaza de Puente Alto",
+      "latitude": -33.609524,
+      "longitude": -70.575842,
+      "source": "https://www.openstreetmap.org/node/491641302"
+    },
+    {
+      "id": "ref-node-256378408",
+      "name": "Metro Elisa Correa",
+      "latitude": -33.569294,
+      "longitude": -70.583808,
+      "source": "https://www.openstreetmap.org/node/256378408"
+    },
+    {
+      "id": "ref-way-235053204",
+      "name": "Parque Juan Pablo II",
+      "latitude": -33.624078,
+      "longitude": -70.616173,
+      "source": "https://www.openstreetmap.org/way/235053204"
+    }
+  ],
+  "Quilicura": [
+    {
+      "id": "ref-way-1303508490",
+      "name": "Ilustre Municipalidad de Quilicura",
+      "latitude": -33.368982,
+      "longitude": -70.732501,
+      "source": "https://www.openstreetmap.org/way/1303508490"
+    },
+    {
+      "id": "ref-node-2390287915",
+      "name": "Metro Los Libertadores",
+      "latitude": -33.36543,
+      "longitude": -70.69199,
+      "source": "https://www.openstreetmap.org/node/2390287915"
+    },
+    {
+      "id": "ref-way-579260565",
+      "name": "Parque Central Lo Campino",
+      "latitude": -33.382735,
+      "longitude": -70.727268,
+      "source": "https://www.openstreetmap.org/way/579260565"
+    }
+  ],
+  "Quinta Normal": [
+    {
+      "id": "ref-node-2054276511",
+      "name": "Ilustre Municipalidad Quinta Normal",
+      "latitude": -33.422077,
+      "longitude": -70.693823,
+      "source": "https://www.openstreetmap.org/node/2054276511"
+    },
+    {
+      "id": "ref-node-475498009",
+      "name": "Metro Blanqueado",
+      "latitude": -33.441331,
+      "longitude": -70.706652,
+      "source": "https://www.openstreetmap.org/node/475498009"
+    },
+    {
+      "id": "ref-way-177734992",
+      "name": "Parque de la Familia",
+      "latitude": -33.424066,
+      "longitude": -70.679968,
+      "source": "https://www.openstreetmap.org/way/177734992"
+    }
+  ],
+  "Recoleta": [
+    {
+      "id": "ref-way-607221850",
+      "name": "Ilustre Municipalidad de Recoleta",
+      "latitude": -33.401884,
+      "longitude": -70.643499,
+      "source": "https://www.openstreetmap.org/way/607221850"
+    },
+    {
+      "id": "ref-way-923953783",
+      "name": "Parque Cerro Blanco",
+      "latitude": -33.418423,
+      "longitude": -70.644291,
+      "source": "https://www.openstreetmap.org/way/923953783"
+    },
+    {
+      "id": "ref-node-267078399",
+      "name": "Metro Vespucio Norte",
+      "latitude": -33.380754,
+      "longitude": -70.64634,
+      "source": "https://www.openstreetmap.org/node/267078399"
+    }
+  ],
+  "Renca": [
+    {
+      "id": "ref-way-672281864",
+      "name": "Ilustre Municipalidad de Renca",
+      "latitude": -33.404547,
+      "longitude": -70.704111,
+      "source": "https://www.openstreetmap.org/way/672281864"
+    },
+    {
+      "id": "ref-way-1530210052",
+      "name": "Plaza Cerro Renca",
+      "latitude": -33.393336,
+      "longitude": -70.746401,
+      "source": "https://www.openstreetmap.org/way/1530210052"
+    },
+    {
+      "id": "ref-node-11920229848",
+      "name": "Plaza del Encuentro",
+      "latitude": -33.404266,
+      "longitude": -70.780734,
+      "source": "https://www.openstreetmap.org/node/11920229848"
+    }
+  ],
+  "San Bernardo": [
+    {
+      "id": "ref-way-15740389",
+      "name": "Plaza de Armas San Bernardo",
+      "latitude": -33.592242,
+      "longitude": -70.704425,
+      "source": "https://www.openstreetmap.org/way/15740389"
+    },
+    {
+      "id": "ref-way-259812380",
+      "name": "Parque Metropolitano Sur Cerro Chena",
+      "latitude": -33.603833,
+      "longitude": -70.719427,
+      "source": "https://www.openstreetmap.org/way/259812380"
+    },
+    {
+      "id": "ref-node-4747704104",
+      "name": "Estación Nos",
+      "latitude": -33.632267,
+      "longitude": -70.704614,
+      "source": "https://www.openstreetmap.org/node/4747704104"
+    }
+  ],
+  "San Joaquín": [
+    {
+      "id": "ref-way-708329374",
+      "name": "Ilustre Municipalidad de San Joaquín",
+      "latitude": -33.479189,
+      "longitude": -70.641353,
+      "source": "https://www.openstreetmap.org/way/708329374"
+    },
+    {
+      "id": "ref-way-24742920",
+      "name": "Parque La Castrina",
+      "latitude": -33.511342,
+      "longitude": -70.629378,
+      "source": "https://www.openstreetmap.org/way/24742920"
+    },
+    {
+      "id": "ref-node-253295179",
+      "name": "Metro Carlos Valdovinos",
+      "latitude": -33.486398,
+      "longitude": -70.619182,
+      "source": "https://www.openstreetmap.org/node/253295179"
+    }
+  ],
+  "San José de Maipo": [
+    {
+      "id": "ref-node-4953269434",
+      "name": "Ilustre Municipalidad de San José de Maipo",
+      "latitude": -33.640589,
+      "longitude": -70.353803,
+      "source": "https://www.openstreetmap.org/node/4953269434"
+    },
+    {
+      "id": "ref-node-7243308074",
+      "name": "Estación El Melocotón",
+      "latitude": -33.693218,
+      "longitude": -70.335621,
+      "source": "https://www.openstreetmap.org/node/7243308074"
+    },
+    {
+      "id": "ref-way-1395188017",
+      "name": "Estación Antigua Estación FCM San Alfonso",
+      "latitude": -33.732,
+      "longitude": -70.317937,
+      "source": "https://www.openstreetmap.org/way/1395188017"
+    }
+  ],
+  "San Miguel": [
+    {
+      "id": "ref-way-448177185",
+      "name": "Ilustre Municipalidad de San Miguel",
+      "latitude": -33.485791,
+      "longitude": -70.649641,
+      "source": "https://www.openstreetmap.org/way/448177185"
+    },
+    {
+      "id": "ref-node-301699834",
+      "name": "Metro Ciudad del Niño",
+      "latitude": -33.509543,
+      "longitude": -70.656645,
+      "source": "https://www.openstreetmap.org/node/301699834"
+    },
+    {
+      "id": "ref-node-301699645",
+      "name": "Metro Lo Vial",
+      "latitude": -33.496829,
+      "longitude": -70.653015,
+      "source": "https://www.openstreetmap.org/node/301699645"
+    }
+  ],
+  "San Pedro": [
+    {
+      "id": "ref-node-2184529577",
+      "name": "Ilustre Municipalidad de San Pedro",
+      "latitude": -33.894535,
+      "longitude": -71.456467,
+      "source": "https://www.openstreetmap.org/node/2184529577"
+    },
+    {
+      "id": "ref-way-1284959647",
+      "name": "Plaza La Merced",
+      "latitude": -33.919399,
+      "longitude": -71.508563,
+      "source": "https://www.openstreetmap.org/way/1284959647"
+    },
+    {
+      "id": "ref-way-1198532675",
+      "name": "Iglesia de Loica",
+      "latitude": -33.968466,
+      "longitude": -71.481332,
+      "source": "https://www.openstreetmap.org/way/1198532675"
+    }
+  ],
+  "San Ramón": [
+    {
+      "id": "ref-node-2042681883",
+      "name": "Ilustre Municipalidad de San Ramón",
+      "latitude": -33.543078,
+      "longitude": -70.643842,
+      "source": "https://www.openstreetmap.org/node/2042681883"
+    },
+    {
+      "id": "ref-way-1073701114",
+      "name": "Centro Cultural de San Ramón",
+      "latitude": -33.548538,
+      "longitude": -70.633611,
+      "source": "https://www.openstreetmap.org/way/1073701114"
+    },
+    {
+      "id": "ref-way-31705729",
+      "name": "Parque La Bandera",
+      "latitude": -33.542092,
+      "longitude": -70.642529,
+      "source": "https://www.openstreetmap.org/way/31705729"
+    }
+  ],
+  "Santiago": [
+    {
+      "id": "ref-node-6231367141",
+      "name": "Metro Plaza de Armas",
+      "latitude": -33.437415,
+      "longitude": -70.651278,
+      "source": "https://www.openstreetmap.org/node/6231367141"
+    },
+    {
+      "id": "ref-way-23394922",
+      "name": "Parque Quinta Normal",
+      "latitude": -33.44116,
+      "longitude": -70.683163,
+      "source": "https://www.openstreetmap.org/way/23394922"
+    },
+    {
+      "id": "ref-node-253360557",
+      "name": "Metro Parque O'Higgins",
+      "latitude": -33.460847,
+      "longitude": -70.656847,
+      "source": "https://www.openstreetmap.org/node/253360557"
+    }
+  ],
+  "Talagante": [
+    {
+      "id": "ref-way-1286815392",
+      "name": "Ilustre Municipalidad de Talagante",
+      "latitude": -33.665299,
+      "longitude": -70.930176,
+      "source": "https://www.openstreetmap.org/way/1286815392"
+    },
+    {
+      "id": "ref-way-222225020",
+      "name": "Plaza Lonquén",
+      "latitude": -33.711303,
+      "longitude": -70.855144,
+      "source": "https://www.openstreetmap.org/way/222225020"
+    },
+    {
+      "id": "ref-way-1468810068",
+      "name": "Parque Los Presidentes",
+      "latitude": -33.688465,
+      "longitude": -70.951835,
+      "source": "https://www.openstreetmap.org/way/1468810068"
+    }
+  ],
+  "Tiltil": [
+    {
+      "id": "ref-node-3381576593",
+      "name": "Ilustre Municipalidad de Tiltil",
+      "latitude": -33.085269,
+      "longitude": -70.929679,
+      "source": "https://www.openstreetmap.org/node/3381576593"
+    },
+    {
+      "id": "ref-way-367995657",
+      "name": "Plaza de Armas",
+      "latitude": -33.135894,
+      "longitude": -70.798709,
+      "source": "https://www.openstreetmap.org/way/367995657"
+    },
+    {
+      "id": "ref-node-12726792282",
+      "name": "Museo Arqueológico El Rutal",
+      "latitude": -32.986949,
+      "longitude": -70.847703,
+      "source": "https://www.openstreetmap.org/node/12726792282"
+    }
+  ],
+  "Vitacura": [
+    {
+      "id": "ref-way-93992786",
+      "name": "Parque Bicentenario",
+      "latitude": -33.400735,
+      "longitude": -70.601957,
+      "source": "https://www.openstreetmap.org/way/93992786"
+    },
+    {
+      "id": "ref-way-436815536",
+      "name": "Museo Ralli",
+      "latitude": -33.396799,
+      "longitude": -70.592056,
+      "source": "https://www.openstreetmap.org/way/436815536"
+    },
+    {
+      "id": "ref-way-276755097",
+      "name": "Museo de la Moda",
+      "latitude": -33.397659,
+      "longitude": -70.586499,
+      "source": "https://www.openstreetmap.org/way/276755097"
+    }
+  ]
+}

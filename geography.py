@@ -3,7 +3,9 @@
 Source: https://www.bcn.cl/siit/mapoteca/comunas
 """
 
+import json
 import unicodedata
+from pathlib import Path
 
 COMMUNES = (
     "Alhué", "Buin", "Calera de Tango", "Cerrillos", "Cerro Navia", "Colina", "Conchalí",
@@ -22,3 +24,5 @@ def key(value):
 
 
 COMMUNE_NAMES = {key(name): name for name in COMMUNES}
+
+REFERENCE_POINTS = json.loads((Path(__file__).parent / "references.json").read_text(encoding="utf-8"))

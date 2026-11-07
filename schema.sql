@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS photos (event_id TEXT PRIMARY KEY REFERENCES events(i
 CREATE TABLE IF NOT EXISTS bookings (
  event_id TEXT NOT NULL REFERENCES events(id), neighbor_id TEXT NOT NULL REFERENCES neighbors(id),
  status TEXT NOT NULL CHECK(status IN ('reserved','waiting','attended','cancelled')),
- created INTEGER NOT NULL, attended_at INTEGER, PRIMARY KEY(event_id,neighbor_id)
+ created INTEGER NOT NULL, attended_at INTEGER, queue_order INTEGER NOT NULL, PRIMARY KEY(event_id,neighbor_id)
 );
 CREATE INDEX IF NOT EXISTS booking_queue ON bookings(event_id,status,created);
 CREATE INDEX IF NOT EXISTS booking_neighbor ON bookings(neighbor_id);
@@ -54,4 +54,10 @@ CREATE TABLE IF NOT EXISTS coordinator_requests (
  organization TEXT NOT NULL, reason TEXT NOT NULL, password_hash TEXT NOT NULL,
  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
  created INTEGER NOT NULL, reviewed_at INTEGER, reviewed_by TEXT REFERENCES staff(id)
+);
+
+CREATE TABLE IF NOT EXISTS whatsapp_subscriptions (
+ neighbor_id TEXT NOT NULL REFERENCES neighbors(id), commune TEXT NOT NULL,
+ active INTEGER NOT NULL DEFAULT 1, created INTEGER NOT NULL,
+ PRIMARY KEY(neighbor_id,commune)
 );

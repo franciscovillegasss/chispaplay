@@ -1,1 +1,1 @@
-# Python 3.11 o posterior. La aplicación usa la biblioteca estándar.
+psycopg[binary]>=3.2,<4

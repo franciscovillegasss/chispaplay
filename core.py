@@ -5,6 +5,8 @@ import re
 import secrets
 import sqlite3
 import time
+
+import cloud_database
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -26,6 +28,10 @@ def now():
 
 @contextmanager
 def database(write=False):
+    if cloud_database.DATABASE_URL:
+        with cloud_database.database(write) as connection:
+            yield connection
+        return
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
@@ -39,6 +45,11 @@ def database(write=False):
 
 
 def init_db():
+    if cloud_database.DATABASE_URL:
+        cloud_database.initialize()
+        with database(write=True) as db:
+            normalize_records(db)
+        return
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     with database() as db:
         db.execute("PRAGMA journal_mode=WAL")
@@ -56,14 +67,27 @@ def init_db():
         staff_columns = {column["name"] for column in db.execute("PRAGMA table_info(staff)")}
         if "phone" not in staff_columns:
             db.execute("ALTER TABLE staff ADD COLUMN phone TEXT")
-        db.execute("UPDATE neighbors SET tracking=1 WHERE tracking!=1")
-        for neighbor in db.execute("SELECT id FROM neighbors WHERE length(personal_code)!=5 OR personal_code GLOB '*[^0-9]*'").fetchall():
+        booking_columns = {column["name"] for column in db.execute("PRAGMA table_info(bookings)")}
+        if "queue_order" not in booking_columns:
+            db.execute("ALTER TABLE bookings ADD COLUMN queue_order INTEGER")
+        rows = db.execute("SELECT event_id,neighbor_id FROM bookings WHERE queue_order IS NULL ORDER BY created,rowid").fetchall()
+        next_order = db.execute("SELECT COALESCE(MAX(queue_order),0) FROM bookings").fetchone()[0]
+        for offset, row in enumerate(rows, 1):
+            db.execute("UPDATE bookings SET queue_order=? WHERE event_id=? AND neighbor_id=?",
+                       (next_order + offset, row["event_id"], row["neighbor_id"]))
+        normalize_records(db)
+
+
+def normalize_records(db):
+    db.execute("UPDATE neighbors SET tracking=1 WHERE tracking!=1")
+    for neighbor in db.execute("SELECT id,personal_code FROM neighbors").fetchall():
+        if not re.fullmatch(r"[0-9]{5}", neighbor["personal_code"]):
             db.execute("UPDATE neighbors SET personal_code=? WHERE id=?", (personal_code(db), neighbor["id"]))
-        ceos = db.execute("SELECT id FROM staff WHERE role='ceo' AND active=1 ORDER BY created,id").fetchall()
-        for duplicate in ceos[1:]:
-            db.execute("UPDATE staff SET active=0 WHERE id=?", (duplicate["id"],))
-            db.execute("DELETE FROM sessions WHERE actor_id=?", (duplicate["id"],))
-        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS single_active_ceo ON staff(role) WHERE role='ceo' AND active=1")
+    ceos = db.execute("SELECT id FROM staff WHERE role='ceo' AND active=1 ORDER BY created,id").fetchall()
+    for duplicate in ceos[1:]:
+        db.execute("UPDATE staff SET active=0 WHERE id=?", (duplicate["id"],))
+        db.execute("DELETE FROM sessions WHERE actor_id=?", (duplicate["id"],))
+    db.execute("CREATE UNIQUE INDEX IF NOT EXISTS single_active_ceo ON staff(role) WHERE role='ceo' AND active=1")
 
 
 def field(body, key, label, maximum=150, minimum=1):

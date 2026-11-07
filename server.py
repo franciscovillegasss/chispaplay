@@ -18,8 +18,9 @@ import auth
 import ai
 import events
 import management
+import notifications
 from core import APIError, ROOT, audit, database, init_db, now, prune, rate_limit
-from geography import COMMUNES
+from geography import COMMUNES, REFERENCE_POINTS
 
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8080"))
@@ -159,7 +160,7 @@ class Handler(BaseHTTPRequestHandler):
                 db.execute("SELECT 1 FROM staff LIMIT 1").fetchone()
                 return {"status": "online"}
             if path == "/api/communes":
-                return {"communes": list(COMMUNES)}
+                return {"communes": list(COMMUNES), "references": REFERENCE_POINTS}
             if path == "/api/session":
                 return {"actor": auth.public_actor(auth.actor_for(db, token))}
             if path == "/api/events":
@@ -180,7 +181,7 @@ class Handler(BaseHTTPRequestHandler):
                 reports = db.execute("""SELECT r.id,r.status,e.title FROM reports r JOIN events e ON e.id=r.event_id
                     WHERE r.neighbor_id=? ORDER BY r.created DESC""", (actor["id"],))
                 return {"actor": auth.public_actor(actor), "bookings": [dict(r) for r in bookings],
-                        "reports": [dict(r) for r in reports]}
+                        "reports": [dict(r) for r in reports], "notifications": notifications.preferences(db, actor)}
             if path == "/api/coordinator":
                 actor = auth.actor_for(db, token, "coordinator")
                 return {"events": events.catalog(db, owner=actor["id"])}
@@ -189,7 +190,7 @@ class Handler(BaseHTTPRequestHandler):
                 events.require_owner(events.event_row(db, match[1]), actor)
                 rows = db.execute("""SELECT n.name,b.status,b.created,b.attended_at
                     FROM bookings b JOIN neighbors n ON n.id=b.neighbor_id
-                    WHERE b.event_id=? AND b.status!='cancelled' ORDER BY b.created,b.rowid""", (match[1],))
+                    WHERE b.event_id=? AND b.status!='cancelled' ORDER BY b.queue_order""", (match[1],))
                 return {"bookings": [dict(r) for r in rows]}
             if path == "/api/ceo":
                 auth.actor_for(db, token, "ceo")
@@ -201,8 +202,8 @@ class Handler(BaseHTTPRequestHandler):
             return auth.register_neighbor(body, self.client_ip(), token)
         if path == "/api/neighbors/login":
             return auth.login_neighbor(body, self.client_ip(), token)
-        if path == "/api/ceo/login":
-            return auth.login_ceo(body, self.client_ip(), token)
+        if path == "/api/account/login":
+            return auth.login_account(body, self.client_ip(), token)
         if path == "/api/coordinator/request":
             return auth.request_coordinator(body, self.client_ip()), None
         if path == "/api/coordinator/suggest":
@@ -229,6 +230,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.mutate(db, path, body, token), None
 
     def mutate(self, db, path, body, token):
+        if path == "/api/me/notifications":
+            return notifications.subscribe(db, auth.actor_for(db, token, "neighbor"), body)
         if path == "/api/traffic":
             return management.visit(db, auth.actor_for(db, token, "neighbor"), body)
         if match := re.fullmatch(r"/api/events/([0-9a-f]{32})/(reserve|cancel|report)", path):

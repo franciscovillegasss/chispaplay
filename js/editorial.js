@@ -1,15 +1,26 @@
 let COMMUNES_DATA = {};
+let navigationActor = null;
 
-export function configureGeography(communes, events = []) {
+export function configureGeography(communes, events = [], references = {}) {
   COMMUNES_DATA = Object.fromEntries(communes.map(name => {
     const id = normalize(name);
     const sectors = [...new Set(events.filter(event => normalize(event.commune) === id).map(event => event.sector))];
-    return [id, { id, name, centerReference: { id: 'all', name: 'Todos los sectores' },
-      suggestions: [{ id: 'all', name: 'Todos los sectores' }, ...sectors.map((sector, index) => ({ id: String(index), name: sector }))] }];
+    return [id, { id, name, centerReference: { id: 'all', name: 'Todos los sectores', kind: 'all' },
+      suggestions: [{ id: 'all', name: 'Todos los sectores', kind: 'all' },
+        ...(references[name] || []).map(point => ({ ...point, kind: 'reference' })),
+        ...sectors.map((sector, index) => ({ id: 'sector-' + index, name: sector, kind: 'sector' }))] }];
   }));
 }
 
+export function getReferencePosition(commune) {
+  const data = COMMUNES_DATA[normalize(commune)];
+  const id = params.get('reference') || localStorage.getItem('chispaplay_reference_id');
+  const point = data?.suggestions.find(item => item.id === id && item.kind === 'reference');
+  return point ? { latitude: point.latitude, longitude: point.longitude } : null;
+}
+
 export function renderNavigation(page, actor) {
+  navigationActor = actor;
   const activePageKey = { home: 'inicio', catalog: 'actividades', event: 'actividades', profile: 'perfil' }[page];
   const container = document.getElementById('navbar-container');
   if (!container) return;
@@ -331,7 +342,7 @@ const getActiveCommune = () => {
   return COMMUNES_DATA[value] ? value : 'santiago';
 };
 const normalize = value => String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-const catalogUrl = (commune, sector = '') => 'actividades.html?' + new URLSearchParams({ commune, sector });
+const catalogUrl = (commune, sector = '', reference = '') => 'actividades.html?' + new URLSearchParams({ commune, sector, reference });
 const localDay = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Santiago' });
 const dateTime = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Santiago' });
 
@@ -344,7 +355,8 @@ function escapeHtml(value) {
 function getActiveReferencePoint() {
   const commune = COMMUNES_DATA[getActiveCommune()];
   const name = params.get('sector') || localStorage.getItem('chispaplay_editorial_sector');
-  return commune.suggestions.find(sector => sector.name === name) || commune.centerReference;
+  const id = params.get('reference') || localStorage.getItem('chispaplay_reference_id');
+  return commune.suggestions.find(point => point.id === id) || commune.suggestions.find(sector => sector.name === name) || commune.centerReference;
 }
 
 function bindNavbarEvents(container, commune) {
@@ -364,7 +376,9 @@ function bindNavbarEvents(container, commune) {
   }
   container.querySelectorAll('[data-quick-ref-id]').forEach(button => button.addEventListener('click', () => {
     const sector = commune.suggestions.find(item => item.id === button.dataset.quickRefId);
-    location.href = catalogUrl(commune.id, sector.id === 'all' ? '' : sector.name);
+    localStorage.setItem('chispaplay_active_commune', commune.id);
+    localStorage.setItem('chispaplay_reference_id', sector.id);
+    location.href = catalogUrl(commune.id, sector.kind === 'sector' ? sector.name : '', sector.kind === 'reference' ? sector.id : '');
   }));
   select('btn-quick-switch-commune').addEventListener('click', () => {
     location.href = 'index.html#hero-interactive-canvas';
@@ -396,14 +410,19 @@ function daysAway(event) {
     Date.parse(localDay.format(new Date()))) / 86400000;
 }
 
-function walkingEstimate(event, origin) {
-  if (!origin || event.latitude == null || event.longitude == null) return '';
+function distanceMeters(event, origin) {
+  if (!origin || event.latitude == null || event.longitude == null) return Infinity;
   const radians = angle => angle * Math.PI / 180;
   const deltaLat = radians(event.latitude - origin.latitude);
   const deltaLng = radians(event.longitude - origin.longitude);
   const a = Math.sin(deltaLat / 2) ** 2 +
     Math.cos(radians(origin.latitude)) * Math.cos(radians(event.latitude)) * Math.sin(deltaLng / 2) ** 2;
-  const meters = 12742000 * Math.asin(Math.sqrt(Math.min(1, a)));
+  return 12742000 * Math.asin(Math.sqrt(Math.min(1, a)));
+}
+
+function walkingEstimate(event, origin) {
+  const meters = distanceMeters(event, origin);
+  if (!Number.isFinite(meters)) return origin ? 'Distancia por confirmar: actividad sin coordenadas' : '';
   return Math.max(1, Math.ceil(meters / 80)) + ' min estimados en línea recta';
 }
 
@@ -431,7 +450,7 @@ function cards(events, poster, position) {
 }
 
 function renderHome(events, track) {
-  let commune, sector;
+  let commune, sector, reference;
   const selector = document.getElementById('home-commune');
   const sectorBox = document.getElementById('hero-step2-container');
   const sectorGrid = document.getElementById('step2-sectors-grid');
@@ -443,19 +462,38 @@ function renderHome(events, track) {
     commune = selector.value;
     if (!commune) return;
     sector = '';
+    reference = null;
+    localStorage.removeItem('chispaplay_reference_id');
     localStorage.setItem('chispaplay_active_commune', commune);
     localStorage.removeItem('chispaplay_editorial_sector');
+    params.delete('reference');
+    params.set('commune', commune);
+    renderNavigation('home', navigationActor);
     document.getElementById('step2-commune-label').textContent = COMMUNES_DATA[commune].name;
-    const labels = new Set(['', ...events.filter(inCommune).map(event => event.sector)]);
     sectorGrid.replaceChildren();
-    for (const name of labels) {
+    for (const point of COMMUNES_DATA[commune].suggestions) {
       const choice = document.createElement('button');
       choice.type = 'button';
       choice.className = 'bg-neutral-50 border-2 border-black p-2 text-xs font-bold hover:bg-black hover:text-white';
-      choice.textContent = name || 'Todos los sectores';
+      choice.textContent = point.name;
       choice.addEventListener('click', () => {
-        sector = name;
-        localStorage.setItem('chispaplay_editorial_sector', name);
+        sector = point.kind === 'sector' ? point.name : '';
+        reference = point.kind === 'reference' ? point : null;
+        localStorage.setItem('chispaplay_reference_id', point.id);
+        localStorage.setItem('chispaplay_editorial_sector', sector);
+        params.set('reference', point.kind === 'reference' ? point.id : '');
+        renderNavigation('home', navigationActor);
+        const details = document.getElementById('reference-details');
+        details.replaceChildren();
+        if (reference) {
+          const link = document.createElement('a');
+          link.href = reference.source;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.className = 'underline font-bold';
+          link.textContent = 'Ver referencia cartográfica en OpenStreetMap';
+          details.append(link);
+        }
         document.getElementById('step3-ref-label').textContent = choice.textContent;
         timeframeBox.classList.remove('hidden');
         ranking.classList.add('hidden');
@@ -471,10 +509,11 @@ function renderHome(events, track) {
       const maxDays = { hoy: 0, semana: 7, mes: 30 }[button.dataset.timeframe];
       const items = events.filter(event => inCommune(event) &&
         (!sector || normalize(event.sector) === normalize(sector)) && daysAway(event) <= maxDays);
-      document.getElementById('ranking-headline').textContent = 'Actividades · ' + (sector || COMMUNES_DATA[commune].name);
+      if (reference) items.sort((a, b) => distanceMeters(a, reference) - distanceMeters(b, reference));
+      document.getElementById('ranking-headline').textContent = 'Actividades · ' + (reference?.name || sector || COMMUNES_DATA[commune].name);
       document.getElementById('ranking-count-label').textContent = items.length + ' actividades';
-      document.getElementById('ranking-list-container').innerHTML = cards(items, true);
-      ranking.querySelector('a').href = catalogUrl(commune, sector);
+      document.getElementById('ranking-list-container').innerHTML = cards(items, true, reference);
+      ranking.querySelector('a').href = catalogUrl(commune, sector, reference?.id || '');
       ranking.classList.remove('hidden');
       ranking.scrollIntoView({ block: 'start' });
       track('filtros_usados');
@@ -486,6 +525,7 @@ function renderDaily(events, track) {
   const search = document.getElementById('input-search-activities');
   const clear = document.getElementById('btn-clear-search');
   const commune = document.getElementById('catalog-commune');
+  const referenceSelect = document.getElementById('catalog-reference');
   const poster = document.getElementById('btn-view-poster');
   const diary = document.getElementById('btn-view-diario');
   const categories = [...document.querySelectorAll('.btn-filter-category')];
@@ -504,6 +544,14 @@ function renderDaily(events, track) {
   const initial = normalize(params.get('commune') || '');
   commune.value = COMMUNES_DATA[initial] ? initial : '';
   search.value = params.get('sector') || '';
+  function referenceOptions(initial = '') {
+    referenceSelect.replaceChildren(new Option('Sin punto de referencia', ''));
+    for (const point of COMMUNES_DATA[commune.value]?.suggestions || []) {
+      if (point.kind === 'reference') referenceSelect.add(new Option(point.name, point.id));
+    }
+    referenceSelect.value = initial;
+  }
+  referenceOptions(params.get('reference') || '');
   function render() {
     const needle = normalize(search.value.trim());
     const items = events.filter(event =>
@@ -512,6 +560,9 @@ function renderDaily(events, track) {
       (category === 'todas' || terms[category].some(word => normalize(event.category).includes(word))) &&
       normalize([event.title, event.venue, event.sector, event.organizer, event.category].join(' ')).includes(needle)
     );
+    const reference = COMMUNES_DATA[commune.value]?.suggestions.find(point => point.id === referenceSelect.value);
+    const origin = position || (reference?.kind === 'reference' ? reference : null);
+    if (origin) items.sort((a, b) => distanceMeters(a, origin) - distanceMeters(b, origin));
     document.getElementById('actividades-commune-badge').textContent = commune.value ? 'COMUNA: ' + COMMUNES_DATA[commune.value].name : 'REGIÓN METROPOLITANA';
     document.getElementById('actividades-count-display').textContent = items.length + ' actividades';
     clear.classList.toggle('hidden', !search.value);
@@ -526,7 +577,7 @@ function renderDaily(events, track) {
     for (const [group, includes] of [['hoy', days => days <= 0], ['semana', days => days > 0 && days <= 7], ['mes', days => days > 7]]) {
       const list = document.getElementById('list-' + group);
       list.className = isPoster ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-3';
-      list.innerHTML = cards(items.filter(event => includes(daysAway(event))), isPoster, position);
+      list.innerHTML = cards(items.filter(event => includes(daysAway(event))), isPoster, origin);
     }
   }
   function apply() {
@@ -539,7 +590,24 @@ function renderDaily(events, track) {
     timer = setTimeout(() => track('filtros_usados'), 500);
   });
   clear.addEventListener('click', () => { search.value = ''; apply(); });
-  for (const filter of [commune, sensory, wheelchair]) filter.addEventListener('change', apply);
+  commune.addEventListener('change', () => {
+    referenceOptions();
+    localStorage.setItem('chispaplay_active_commune', commune.value || 'santiago');
+    localStorage.removeItem('chispaplay_reference_id');
+    params.set('commune', commune.value);
+    params.delete('reference');
+    history.replaceState(null, '', location.pathname + '?' + params.toString());
+    renderNavigation('catalog', navigationActor);
+    apply();
+  });
+  referenceSelect.addEventListener('change', () => {
+    localStorage.setItem('chispaplay_reference_id', referenceSelect.value);
+    params.set('reference', referenceSelect.value);
+    history.replaceState(null, '', location.pathname + '?' + params.toString());
+    renderNavigation('catalog', navigationActor);
+    apply();
+  });
+  for (const filter of [sensory, wheelchair]) filter.addEventListener('change', apply);
   function stopGps() {
     if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
     watchId = undefined;

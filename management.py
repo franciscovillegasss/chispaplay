@@ -5,6 +5,7 @@ import sqlite3
 
 import auth
 import events
+import notifications
 from core import APIError, TRAFFIC_DAYS, audit, field, identifier, now
 
 VISIT_ACTIONS = {"cartelera_abierta", "filtros_usados", "ficha_abierta", "enlace_compartido", "mapa_abierto", "calendario_guardado"}
@@ -39,7 +40,7 @@ def dashboard(db, search):
         JOIN events e ON e.id=r.event_id ORDER BY r.status='resolved',r.created DESC LIMIT 100""")
     requests = db.execute("""SELECT id,username,name,phone,organization,reason,status,created FROM coordinator_requests
         WHERE status='pending' ORDER BY created""")
-    return {"requests": [dict(row) for row in requests], "counts": dict(counts), "traffic": [dict(r) for r in traffic], "staff": [dict(r) for r in staff],
+    return {"requests": [dict(row) for row in requests], "whatsapp": notifications.subscribers(db), "counts": dict(counts), "traffic": [dict(r) for r in traffic], "staff": [dict(r) for r in staff],
             "neighbors": [dict(r) for r in neighbors], "audit": [dict(r) for r in entries],
             "reports": [dict(r) for r in reports], "events": events.catalog(db, all_events=True)}
 

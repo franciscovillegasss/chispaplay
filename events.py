@@ -30,7 +30,7 @@ CATALOG = """
 
 
 def event_row(db, event_id):
-    row = db.execute(CATALOG + " WHERE e.id=? GROUP BY e.id", (event_id,)).fetchone()
+    row = db.execute(CATALOG + " WHERE e.id=? GROUP BY e.id,s.name", (event_id,)).fetchone()
     if not row:
         raise APIError(404, "Actividad no encontrada.")
     return row
@@ -57,7 +57,7 @@ def catalog(db, owner=None, all_events=False):
         where = f" WHERE e.status='published' AND e.ends>? AND e.commune IN ({placeholders})"
         values = (now(), *COMMUNES)
     order = "DESC" if owner or all_events else "ASC"
-    rows = db.execute(CATALOG + where + f" GROUP BY e.id ORDER BY e.starts {order}, e.id", values)
+    rows = db.execute(CATALOG + where + f" GROUP BY e.id,s.name ORDER BY e.starts {order}, e.id", values)
     return [result(row, public=not (owner or all_events)) for row in rows]
 
 
@@ -145,7 +145,7 @@ def save(db, actor, body, event=None):
         db.execute(f"INSERT INTO events({columns}) VALUES ({placeholders})", tuple(data.values()))
         action = "actividad_publicada"
     if photo:
-        db.execute("INSERT OR REPLACE INTO photos(event_id,mime,content) VALUES (?,?,?)", (event_id, *photo))
+        db.execute("INSERT INTO photos(event_id,mime,content) VALUES (?,?,?) ON CONFLICT(event_id) DO UPDATE SET mime=excluded.mime,content=excluded.content", (event_id, *photo))
     elif body.get("remove_photo") is True:
         db.execute("DELETE FROM photos WHERE event_id=?", (event_id,))
     audit(db, actor, action, event=event_id)
@@ -167,7 +167,7 @@ def fill_seats(db, event, actor):
     if free <= 0 or event["status"] != "published" or event["starts"] <= now():
         return
     waiting = db.execute("""SELECT neighbor_id FROM bookings
-        WHERE event_id=? AND status='waiting' ORDER BY created,rowid LIMIT ?""", (event["id"], free)).fetchall()
+        WHERE event_id=? AND status='waiting' ORDER BY queue_order LIMIT ?""", (event["id"], free)).fetchall()
     for booking in waiting:
         db.execute("UPDATE bookings SET status='reserved' WHERE event_id=? AND neighbor_id=?",
                    (event["id"], booking["neighbor_id"]))
@@ -195,7 +195,9 @@ def reserve(db, actor, event, cancel_reservation=False):
     status = "reserved" if event["booked"] < event["capacity"] else "waiting"
     if booking:
         db.execute("DELETE FROM bookings WHERE event_id=? AND neighbor_id=?", keys)
-    db.execute("INSERT INTO bookings(event_id,neighbor_id,status,created) VALUES (?,?,?,?)", (*keys, status, now()))
+    queue_order = db.execute("SELECT COALESCE(MAX(queue_order),0)+1 FROM bookings").fetchone()[0]
+    db.execute("INSERT INTO bookings(event_id,neighbor_id,status,created,queue_order) VALUES (?,?,?,?,?)",
+               (*keys, status, now(), queue_order))
     audit(db, actor, "reserva_confirmada" if status == "reserved" else "lista_espera", actor["id"], event["id"])
     return {"status": status}
 
