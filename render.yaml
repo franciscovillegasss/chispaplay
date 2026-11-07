@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: chispaplay
+    runtime: python
+    branch: chispaplay-operativo
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: 'test -n "$CHISPA_DATABASE_URL" && CHISPA_PUBLIC_ORIGIN="$RENDER_EXTERNAL_URL" exec python server.py'
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: CHISPA_DATABASE_URL
+        sync: false

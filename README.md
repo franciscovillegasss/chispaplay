@@ -70,6 +70,14 @@ Detén previamente la instancia que escribe en esa base, conserva una copia de s
 
 El plan Free de Supabase incluye 500 MB de base y puede pausarse tras una semana sin actividad. Consulta los límites del [plan gratuito](https://supabase.com/pricing) antes de activarlo. La integración preparada necesita el proyecto y la conexión del servidor para completar la migración real.
 
+## Publicación desde GitHub
+
+En Render, crea un Blueprint conectado a este repositorio y selecciona la rama `chispaplay-operativo`. El archivo `render.yaml` configura un servicio web Free que sirve la página y la API bajo el mismo dominio HTTPS. Introduce `CHISPA_DATABASE_URL` como secreto durante la creación. El servidor requiere la conexión a PostgreSQL para arrancar en ese entorno.
+
+Si vas a conservar cuentas y eventos existentes, ejecuta la migración anterior antes de habilitar el servicio público. Usa una contraseña nueva para la cuenta CEO antes de publicar. Si partes de una base vacía, puedes crear la cuenta CEO desde tu entorno local conectado al mismo PostgreSQL, con el comando `python server.py ceo` documentado arriba.
+
+La IA de fichas requiere su propio proceso y modelo. Este Blueprint publica la aplicación Python. La ficha se puede completar manualmente mientras el servicio de IA está apagado.
+
 ## Referencias y avisos de WhatsApp
 
 `references.json` contiene tres lugares de referencia por cada una de las 52 comunas. Sus coordenadas y fuentes cartográficas individuales provienen de un extracto de OpenStreetMap de Geofabrik. Los puntos ayudan a orientar la búsqueda y ordenar actividades con coordenadas por cercanía. La estimación usa distancia en línea recta a 80 metros por minuto. El enlace de Google Maps abre indicaciones a pie desde el punto elegido. Tres puntos no garantizan cobertura peatonal completa de una comuna.
