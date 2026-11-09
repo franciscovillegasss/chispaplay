@@ -29,6 +29,8 @@ def dashboard(db, search):
     traffic = db.execute("""SELECT action,COUNT(*) AS total,COUNT(DISTINCT neighbor_id) AS people
         FROM traffic WHERE created>=? GROUP BY action""", (cutoff,))
     staff = db.execute("SELECT id,username,name,phone,active,must_change FROM staff WHERE role='coordinator' ORDER BY name")
+    documents = db.execute("""SELECT d.id,d.name,d.created,s.name AS owner FROM coordinator_documents d
+        JOIN staff s ON s.id=d.owner_id ORDER BY d.created DESC""")
     neighbors = db.execute("""SELECT id,name,phone,tracking,created FROM neighbors
         WHERE instr(lower(name),lower(?))>0 OR instr(phone,?)>0 ORDER BY created DESC LIMIT 100""", (search, search))
     entries = db.execute("""
@@ -42,7 +44,7 @@ def dashboard(db, search):
         WHERE status='pending' ORDER BY created""")
     return {"requests": [dict(row) for row in requests], "whatsapp": notifications.subscribers(db), "counts": dict(counts), "traffic": [dict(r) for r in traffic], "staff": [dict(r) for r in staff],
             "neighbors": [dict(r) for r in neighbors], "audit": [dict(r) for r in entries],
-            "reports": [dict(r) for r in reports], "events": events.catalog(db, all_events=True)}
+            "reports": [dict(r) for r in reports], "documents": [dict(row) for row in documents], "events": events.catalog(db, all_events=True)}
 
 
 def history(db, viewer, neighbor):
@@ -89,15 +91,14 @@ def manage(db, actor, path, body):
         username = auth.username_for(body.get("username"))
         name = field(body, "name", "el nombre del coordinador u organización", 120, 2)
         password = auth.validate_password(body.get("password"))
-        phone = auth.phone_number(body["phone"]) if body.get("phone") else None
-        if phone and db.execute("SELECT 1 FROM staff WHERE phone=?", (phone,)).fetchone():
+        phone = auth.phone_number(body.get("phone"))
+        if db.execute("SELECT 1 FROM staff WHERE phone=?", (phone,)).fetchone():
             raise APIError(409, "Ese celular ya está asociado a una cuenta del equipo.")
         try:
             staff_id = auth.create_staff(db, username, name, auth.password_hash(password), "coordinator", True)
         except sqlite3.IntegrityError:
             raise APIError(409, "Ese usuario ya existe.") from None
-        if phone:
-            db.execute("UPDATE staff SET phone=? WHERE id=?", (phone, staff_id))
+        db.execute("UPDATE staff SET phone=? WHERE id=?", (phone, staff_id))
         audit(db, actor, "coordinador_creado", staff_id)
         return {"id": staff_id}
     if path in ("/api/ceo/staff/status", "/api/ceo/staff/password", "/api/ceo/staff/phone"):

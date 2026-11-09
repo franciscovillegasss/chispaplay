@@ -10,6 +10,8 @@ def subscribe(db, actor, body):
     if not commune or type(body.get("enabled")) is not bool:
         raise APIError(400, "Selecciona una comuna y una preferencia válidas.")
     enabled = body["enabled"]
+    if enabled and not actor["phone"]:
+        raise APIError(400, "Agrega tu celular en Mi Pase antes de activar los avisos.")
     if enabled and body.get("consent") is not True:
         raise APIError(400, "Confirma que quieres recibir avisos por WhatsApp.")
     current = db.execute("SELECT active FROM whatsapp_subscriptions WHERE neighbor_id=? AND commune=?", (actor["id"], commune)).fetchone()
@@ -30,5 +32,5 @@ def preferences(db, actor):
 def subscribers(db):
     return [dict(row) for row in db.execute("""
         SELECT n.name,n.phone,w.commune,w.created FROM whatsapp_subscriptions w
-        JOIN neighbors n ON n.id=w.neighbor_id WHERE w.active=1 ORDER BY w.commune,n.name
+        JOIN neighbors n ON n.id=w.neighbor_id WHERE w.active=1 AND n.phone IS NOT NULL ORDER BY w.commune,n.name
         """)]

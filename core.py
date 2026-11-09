@@ -54,10 +54,20 @@ def init_db():
     with database() as db:
         db.execute("PRAGMA journal_mode=WAL")
         db.executescript((ROOT / "schema.sql").read_text(encoding="utf-8-sig"))
+        db.execute("PRAGMA foreign_keys=OFF")
         db.execute("BEGIN IMMEDIATE")
-        columns = {column["name"] for column in db.execute("PRAGMA table_info(neighbors)")}
+        columns = {column["name"]: column for column in db.execute("PRAGMA table_info(neighbors)")}
         if "password_hash" not in columns:
             db.execute("ALTER TABLE neighbors ADD COLUMN password_hash TEXT")
+        if columns["phone"]["notnull"]:
+            db.execute("""CREATE TABLE neighbors_optional (
+                id TEXT PRIMARY KEY, phone TEXT UNIQUE, name TEXT NOT NULL, username TEXT UNIQUE,
+                personal_code TEXT NOT NULL UNIQUE, tracking INTEGER NOT NULL DEFAULT 1,
+                created INTEGER NOT NULL, password_hash TEXT)""")
+            db.execute("""INSERT INTO neighbors_optional(id,phone,name,personal_code,tracking,created,password_hash)
+                SELECT id,phone,name,personal_code,tracking,created,password_hash FROM neighbors""")
+            db.execute("DROP TABLE neighbors")
+            db.execute("ALTER TABLE neighbors_optional RENAME TO neighbors")
         event_columns = {column["name"] for column in db.execute("PRAGMA table_info(events)")}
         for name, definition in (("wheelchair", "INTEGER NOT NULL DEFAULT 0"), ("sensory", "INTEGER NOT NULL DEFAULT 0"),
                                  ("latitude", "REAL"), ("longitude", "REAL"), ("why_go", "TEXT NOT NULL DEFAULT ''"),
@@ -67,15 +77,21 @@ def init_db():
         staff_columns = {column["name"] for column in db.execute("PRAGMA table_info(staff)")}
         if "phone" not in staff_columns:
             db.execute("ALTER TABLE staff ADD COLUMN phone TEXT")
+        if "profile_changed" not in staff_columns:
+            db.execute("ALTER TABLE staff ADD COLUMN profile_changed INTEGER NOT NULL DEFAULT 0")
         booking_columns = {column["name"] for column in db.execute("PRAGMA table_info(bookings)")}
         if "queue_order" not in booking_columns:
             db.execute("ALTER TABLE bookings ADD COLUMN queue_order INTEGER")
+        if "party" not in booking_columns:
+            db.execute("ALTER TABLE bookings ADD COLUMN party TEXT")
         rows = db.execute("SELECT event_id,neighbor_id FROM bookings WHERE queue_order IS NULL ORDER BY created,rowid").fetchall()
         next_order = db.execute("SELECT COALESCE(MAX(queue_order),0) FROM bookings").fetchone()[0]
         for offset, row in enumerate(rows, 1):
             db.execute("UPDATE bookings SET queue_order=? WHERE event_id=? AND neighbor_id=?",
                        (next_order + offset, row["event_id"], row["neighbor_id"]))
         normalize_records(db)
+        if columns["phone"]["notnull"] and db.execute("PRAGMA foreign_key_check").fetchone():
+            raise sqlite3.IntegrityError("La migración de cuentas encontró referencias inválidas.")
 
 
 def normalize_records(db):

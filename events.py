@@ -14,7 +14,7 @@ MAX_IMAGE = 3 * 1024 * 1024
 IMAGES = {"image/jpeg": b"\xff\xd8\xff", "image/png": b"\x89PNG\r\n\x1a\n", "image/webp": b"RIFF"}
 EVENT_FIELDS = (
     ("title", "el título", 120), ("description", "la descripción", 2000),
-    ("commune", "la comuna", 60), ("sector", "el sector", 80), ("venue", "el lugar", 120),
+    ("commune", "la comuna", 60), ("venue", "el lugar", 120),
     ("address", "la dirección", 180), ("category", "la categoría", 70), ("ages", "las edades", 120),
     ("accessibility", "la información de accesibilidad", 400),
 )
@@ -99,11 +99,16 @@ def save(db, actor, body, event=None):
     if key(data["commune"]) not in COMMUNE_NAMES:
         raise APIError(400, "Selecciona una comuna de la Región Metropolitana.")
     data["commune"] = COMMUNE_NAMES[key(data["commune"])]
+    chosen = field(body, "sector", "la referencia", 80, 0) if "sector" in body else ""
     sector = next((point["name"] for point in REFERENCE_POINTS[data["commune"]]
-                   if data["sector"] in (point["id"], point["name"])), None)
+                   if chosen in (point["id"], point["name"])), None)
     if sector:
         data["sector"] = sector
-    elif not event or (data["commune"], data["sector"]) != (event["commune"], event["sector"]):
+    elif chosen == "custom":
+        data["sector"] = field(body, "custom_reference", "la referencia personalizada", 80)
+    elif not chosen or (event and (data["commune"], chosen) == (event["commune"], event["sector"])):
+        data["sector"] = chosen
+    else:
         raise APIError(400, "Elige un punto de referencia existente de la comuna.")
     why = body.get("why_go", "")
     if not isinstance(why, str) or len(why) > 240:
@@ -180,7 +185,9 @@ def fill_seats(db, event, actor):
         audit(db, actor, "reserva_desde_espera", booking["neighbor_id"], event["id"])
 
 
-def reserve(db, actor, event, cancel_reservation=False):
+def reserve(db, actor, event, cancel_reservation=False, party=None):
+    if party not in (None, "solo", "family"):
+        raise APIError(400, "Selecciona si vas por tu cuenta o con familia.")
     keys = (event["id"], actor["id"])
     booking = db.execute("SELECT status FROM bookings WHERE event_id=? AND neighbor_id=?", keys).fetchone()
     status = booking["status"] if booking else None
@@ -202,8 +209,8 @@ def reserve(db, actor, event, cancel_reservation=False):
     if booking:
         db.execute("DELETE FROM bookings WHERE event_id=? AND neighbor_id=?", keys)
     queue_order = db.execute("SELECT COALESCE(MAX(queue_order),0)+1 FROM bookings").fetchone()[0]
-    db.execute("INSERT INTO bookings(event_id,neighbor_id,status,created,queue_order) VALUES (?,?,?,?,?)",
-               (*keys, status, now(), queue_order))
+    db.execute("INSERT INTO bookings(event_id,neighbor_id,status,created,queue_order,party) VALUES (?,?,?,?,?,?)",
+               (*keys, status, now(), queue_order, party))
     audit(db, actor, "reserva_confirmada" if status == "reserved" else "lista_espera", actor["id"], event["id"])
     return {"status": status}
 

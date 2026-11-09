@@ -1,11 +1,19 @@
 CREATE TABLE IF NOT EXISTS neighbors (
- id TEXT PRIMARY KEY, phone TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
+ id TEXT PRIMARY KEY, phone TEXT UNIQUE, name TEXT NOT NULL, username TEXT,
  personal_code TEXT NOT NULL UNIQUE, tracking BIGINT NOT NULL DEFAULT 1, created BIGINT NOT NULL, password_hash TEXT
 );
+ALTER TABLE neighbors ALTER COLUMN phone DROP NOT NULL;
+ALTER TABLE neighbors ADD COLUMN IF NOT EXISTS username TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS neighbor_username ON neighbors(username);
 CREATE TABLE IF NOT EXISTS staff (
  id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, name TEXT NOT NULL,
  role TEXT NOT NULL CHECK(role IN ('ceo','coordinator')), active BIGINT NOT NULL DEFAULT 1,
- must_change BIGINT NOT NULL DEFAULT 0, created BIGINT NOT NULL, phone TEXT
+ must_change BIGINT NOT NULL DEFAULT 0, created BIGINT NOT NULL, phone TEXT, profile_changed BIGINT NOT NULL DEFAULT 0
+);
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS profile_changed BIGINT NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS coordinator_documents (
+ id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES staff(id), name TEXT NOT NULL,
+ content BYTEA NOT NULL, created BIGINT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sessions (
  digest TEXT PRIMARY KEY, actor_id TEXT NOT NULL, role TEXT NOT NULL, expires BIGINT NOT NULL
@@ -31,8 +39,9 @@ CREATE TABLE IF NOT EXISTS photos (event_id TEXT PRIMARY KEY REFERENCES events(i
 CREATE TABLE IF NOT EXISTS bookings (
  event_id TEXT NOT NULL REFERENCES events(id), neighbor_id TEXT NOT NULL REFERENCES neighbors(id),
  status TEXT NOT NULL CHECK(status IN ('reserved','waiting','attended','cancelled')),
- created BIGINT NOT NULL, attended_at BIGINT, queue_order BIGINT NOT NULL, PRIMARY KEY(event_id,neighbor_id)
+ created BIGINT NOT NULL, attended_at BIGINT, party TEXT, queue_order BIGINT NOT NULL, PRIMARY KEY(event_id,neighbor_id)
 );
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS party TEXT;
 CREATE INDEX IF NOT EXISTS booking_queue ON bookings(event_id,status,created);
 CREATE INDEX IF NOT EXISTS booking_neighbor ON bookings(neighbor_id);
 CREATE TABLE IF NOT EXISTS audit (

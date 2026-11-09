@@ -1,11 +1,15 @@
 CREATE TABLE IF NOT EXISTS neighbors (
- id TEXT PRIMARY KEY, phone TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
+ id TEXT PRIMARY KEY, phone TEXT UNIQUE, name TEXT NOT NULL, username TEXT UNIQUE,
  personal_code TEXT NOT NULL UNIQUE, tracking INTEGER NOT NULL DEFAULT 1, created INTEGER NOT NULL, password_hash TEXT
 );
 CREATE TABLE IF NOT EXISTS staff (
  id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, name TEXT NOT NULL,
  role TEXT NOT NULL CHECK(role IN ('ceo','coordinator')), active INTEGER NOT NULL DEFAULT 1,
- must_change INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, phone TEXT
+ must_change INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, phone TEXT, profile_changed INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS coordinator_documents (
+ id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES staff(id), name TEXT NOT NULL,
+ content BLOB NOT NULL, created INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sessions (
  digest TEXT PRIMARY KEY, actor_id TEXT NOT NULL, role TEXT NOT NULL, expires INTEGER NOT NULL
@@ -31,7 +35,7 @@ CREATE TABLE IF NOT EXISTS photos (event_id TEXT PRIMARY KEY REFERENCES events(i
 CREATE TABLE IF NOT EXISTS bookings (
  event_id TEXT NOT NULL REFERENCES events(id), neighbor_id TEXT NOT NULL REFERENCES neighbors(id),
  status TEXT NOT NULL CHECK(status IN ('reserved','waiting','attended','cancelled')),
- created INTEGER NOT NULL, attended_at INTEGER, queue_order INTEGER NOT NULL, PRIMARY KEY(event_id,neighbor_id)
+ created INTEGER NOT NULL, attended_at INTEGER, party TEXT, queue_order INTEGER NOT NULL, PRIMARY KEY(event_id,neighbor_id)
 );
 CREATE INDEX IF NOT EXISTS booking_queue ON bookings(event_id,status,created);
 CREATE INDEX IF NOT EXISTS booking_neighbor ON bookings(neighbor_id);

@@ -28,6 +28,14 @@ function status(value) {
   return statusNames[value] || 'Sin inscripción';
 }
 
+function partyLabel(value) {
+  return value === 'family' ? 'Con familia' : value === 'solo' ? 'Por su cuenta' : '—';
+}
+
+function documentLink(item) {
+  return '<a href="/api/coordinator/documents/' + escapeHtml(item.id) + '" download>' + escapeHtml(item.name) + '</a>';
+}
+
 function date(timestamp) {
   return chileDate.format(new Date(timestamp * 1000));
 }
@@ -135,7 +143,7 @@ async function renderEvent(id, logView = true) {
     <div class="pb-4 mb-6 border-b-2 border-black"><a class="text-xs font-black uppercase" href="/actividades.html">← Volver a la cartelera</a></div>
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
     <div class="lg:col-span-8 space-y-6">
-    <p class="eyebrow">${escapeHtml(event.commune + ' · ' + event.sector + ' · ' + event.category)}</p>
+    <p class="eyebrow">${escapeHtml([event.commune, event.sector, event.category].filter(Boolean).join(' · '))}</p>
     <h1 class="text-3xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight">${escapeHtml(event.title)}</h1>
     <p class="text-xs font-mono font-bold text-neutral-700">📍 ${escapeHtml(event.venue)} · ${escapeHtml(date(event.starts))}</p>
     ${event.status === 'cancelled' ? '<p class="badge">Actividad cancelada</p>' : ''}
@@ -164,7 +172,10 @@ async function renderEvent(id, logView = true) {
       ${booking === 'reserved' && event.status === 'published' ? '<p>Presenta tu <a href="/perfil.html">código personal</a> al llegar.</p>' : ''}
       ${booking === 'waiting' && open ? '<p>Si se libera un cupo, el sistema confirma la reserva en orden de inscripción. Revisa el estado en Mi Pase.</p>' : ''}
       ${open && !alreadyBooked ? (user
-        ? '<button id="reserve">' + (event.available ? 'Reservar cupo' : 'Entrar a la lista de espera') + '</button>'
+        ? `<form id="reserve"><label>¿Cómo asistirás? (opcional) <select name="party">
+            <option value="">Prefiero no indicar</option><option value="solo">Por mi cuenta</option><option value="family">Con mi familia</option></select></label>
+            <p class="muted">La inscripción reserva un cupo individual. Esta información ayuda al coordinador a preparar la actividad.</p>
+            <button type="submit">${event.available ? 'Reservar cupo' : 'Entrar a la lista de espera'}</button></form>`
         : '<a class="button" href="/perfil.html?activity=' + id + '">Identificarme para inscribirme</a>') : ''}
       ${open && ['reserved', 'waiting'].includes(booking)
         ? '<div class="actions"><button class="secondary" id="cancel-reservation">Cancelar inscripción</button></div>' : ''}
@@ -184,8 +195,8 @@ async function renderEvent(id, logView = true) {
   document.getElementById('google-calendar')?.addEventListener('click', () => track('calendario_guardado', id));
   document.getElementById('share').addEventListener('click', () => track('enlace_compartido', id));
   document.getElementById('directions').addEventListener('click', () => track('mapa_abierto', id));
-  onClick('reserve', async () => {
-    const result = await api('/api/events/' + id + '/reserve', {});
+  onForm('reserve', async ({ party }) => {
+    const result = await api('/api/events/' + id + '/reserve', { party: party || null });
     await renderEvent(id, false);
     notify(status(result.status) + '.');
   });
@@ -247,6 +258,8 @@ function saveCalendar(event) {
 }
 
 function notificationForm(formId, selected = '') {
+  if (!actor?.phone) return '<p>Agrega tu celular en Mi Pase para recibir avisos personalizados si los activas.</p>' +
+    '<a class="button" href="/perfil.html?contacto=1#account-contact">Agregar celular</a>';
   return `<form id="${formId}" class="narrow">
     <label>Comuna para recibir avisos <select name="commune" aria-label="Comuna para recibir avisos" required>
       <option value="">Selecciona tu comuna</option>
@@ -303,10 +316,10 @@ function recoveryForm(role) {
   app.innerHTML = `<section class="panel narrow auth-panel"><h1>Recuperar contraseña</h1>
     <p>Usa el código que guardaste desde tu cuenta. Cada código funciona una sola vez.</p>
     <form id="reset-password">
-      <label>${staff ? 'Usuario o celular' : 'Celular chileno'} <input name="account" ${staff ? '' : 'type="tel"'} autocomplete="username" required maxlength="64"></label>
+      <label>Usuario o celular <input name="account" autocomplete="username" required maxlength="64"></label>
       <label>Código de recuperación <input name="code" required maxlength="50" autocomplete="off" spellcheck="false"></label>
-      <label>Nueva contraseña <input name="new_password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
-      <label>Confirma la contraseña <input name="confirm_password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+      <label>Nueva contraseña <input name="new_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
+      <label>Confirma la contraseña <input name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
       <button type="submit">Restablecer contraseña</button>
     </form>
     <p class="muted">${staff ? 'Si no tienes un código, solicita una contraseña temporal al equipo de ChispaPlay.' : 'Si no guardaste un código, revisa el gestor de contraseñas o contacta al equipo de ChispaPlay desde tu celular registrado.'}</p>
@@ -345,14 +358,19 @@ function bindRecovery() {
   });
 }
 
+const phonePrivacy = 'Tu celular se guarda en la base privada de ChispaPlay. No aparece en la cartelera. Se usa para recuperar el acceso o enviar avisos por WhatsApp si los activas.';
+
 function neighborLogin(register = true) {
   app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Credencial de barrio</p>
     <h1>Mi Pase Vecinal</h1><h2>${register ? 'Crea tu cuenta' : 'Entra a tu cuenta'}</h2>
-    <p>${register ? 'Usa tu nombre y celular para obtener tu código personal de asistencia.' : 'Ingresa el nombre, celular y contraseña de tu cuenta.'}</p>
+    <p>${register ? 'Crea tu Pase Vecinal con tu nombre y un nombre de usuario. Puedes agregar el celular ahora o más adelante.' : 'Ingresa con tu usuario o celular registrado.'}</p>
     <form id="neighbor-auth">
-      <label>Nombre <input name="name" autocomplete="name" required minlength="2" maxlength="100"></label>
-      <label>Celular chileno <input name="phone" type="tel" autocomplete="${register ? 'tel' : 'username'}" required maxlength="25" placeholder="+56 9 1234 5678"></label>
-      <label>Contraseña <input name="password" type="password" autocomplete="${register ? 'new-password' : 'current-password'}" required ${register ? 'minlength="12"' : ''} maxlength="128"></label>
+      ${register ? `<label>Nombre <input name="name" autocomplete="name" required minlength="2" maxlength="100"></label>
+      <label>Nombre de usuario <input name="username" autocomplete="username" required minlength="3" maxlength="64" spellcheck="false"></label>
+      <label>Celular chileno (opcional) <input name="phone" type="tel" autocomplete="tel" maxlength="25"></label>
+      <p class="muted">${phonePrivacy}</p>` : `<label>Usuario o celular <input name="account" autocomplete="username" required maxlength="64"></label>
+      <details><summary>Ingresar también el nombre de la cuenta</summary><label>Nombre de la cuenta <input name="name" autocomplete="name" maxlength="100"></label></details>`}
+      <label>Contraseña <input name="password" type="password" autocomplete="${register ? 'new-password' : 'current-password'}" required ${register ? 'minlength="8"' : ''} maxlength="128"></label>
       ${register ? '<div hidden aria-hidden="true"><label>Sitio web <input name="website" autocomplete="off" tabindex="-1"></label></div>' : ''}
       ${rememberDevice}
       <p class="muted">ChispaPlay registra únicamente tus interacciones dentro de esta página web para medir el uso de la cartelera. No registra tu navegación en otros sitios ni aplicaciones. El historial de esta web se conserva durante 90 días.</p>
@@ -365,7 +383,7 @@ function neighborLogin(register = true) {
   onClick('forgot-password', () => recoveryForm('neighbor'));
   onForm('neighbor-auth', async fields => {
     ({ actor } = await api(register ? '/api/neighbors/register' : '/api/account/login', fields));
-    if (actor.role === 'neighbor') offerBrowserSave(fields, fields.phone);
+    if (actor.role === 'neighbor') offerBrowserSave(fields, fields.account || fields.username || fields.phone);
     renderNavigation(page, actor);
     if (actor.role === 'ceo') {
       location.assign('/perfil.html');
@@ -399,15 +417,15 @@ async function renderProfile() {
   actor = data.actor;
   app.innerHTML = `<h1>Mi Pase Vecinal</h1>
     <section class="panel narrow ticket-panel"><p class="eyebrow">Credencial vecinal</p><h2>${escapeHtml(actor.name)}</h2>
-      <p>${escapeHtml(actor.phone)}</p><p>Presenta este código cuando llegues a una actividad reservada.</p>
+      <p>Presenta este código cuando llegues a una actividad reservada.</p>
       <code class="code">${escapeHtml(actor.personal_code)}</code>
       <div class="actions"><button class="secondary" id="copy-code">Copiar código</button>
         <button class="secondary" id="logout">Cerrar sesión</button></div>
     </section>
     <section class="panel"><h2>Mis actividades</h2>
-      ${table(['Actividad', 'Horario', 'Estado'], data.bookings.map(item => [
+      ${table(['Actividad', 'Horario', 'Estado', 'Compañía'], data.bookings.map(item => [
         '<a href="' + eventUrl(item.id) + '">' + escapeHtml(item.title) + '</a>',
-        escapeHtml(date(item.starts)), item.event_status === 'cancelled' ? 'Actividad cancelada' : status(item.status)
+        escapeHtml(date(item.starts)), item.event_status === 'cancelled' ? 'Actividad cancelada' : status(item.status), partyLabel(item.party)
       ]), 'Todavía no tienes inscripciones.')}
       <div class="actions"><a class="button" href="/actividades.html">Explorar cartelera</a></div>
     </section>
@@ -416,6 +434,12 @@ async function renderProfile() {
         escapeHtml(item.id), escapeHtml(item.title), status(item.status)
       ]), 'Todavía no has enviado reportes.')}
     </section>
+    <details class="panel narrow" id="account-contact" ${query.has('contacto') || !actor.phone ? 'open' : ''}><summary>Usuario y celular</summary>
+      <p>${phonePrivacy}</p><form id="update-contact">
+        <label>Nombre de usuario <input name="username" autocomplete="username" maxlength="64" value="${escapeHtml(actor.username)}"></label>
+        <label>Celular chileno (opcional) <input name="phone" type="tel" autocomplete="tel" maxlength="25" value="${escapeHtml(actor.phone)}"></label>
+        <label>Contraseña actual <input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
+        <button type="submit">Guardar datos de contacto</button></form></details>
     <section class="panel" id="notifications"><h2>Avisos por WhatsApp</h2>
       ${notificationForm('profile-subscribe')}
       ${table(['Comuna', 'Estado', 'Preferencia'], data.notifications.map((item, index) => [
@@ -429,6 +453,11 @@ async function renderProfile() {
     </section>`;
   signOut();
   bindRecovery();
+  onForm('update-contact', async fields => {
+    await api('/api/account/contact', fields);
+    await renderProfile();
+    notify('Datos guardados. Si cambiaste el celular, puedes volver a activar los avisos por WhatsApp.');
+  });
   bindNotifications('profile-subscribe', true);
   for (const [index, item] of data.notifications.entries()) {
     onClick('unsubscribe-' + index, async () => {
@@ -438,6 +467,7 @@ async function renderProfile() {
     });
   }
   if (query.has('notifications')) document.getElementById('notifications').scrollIntoView();
+  if (query.has('contacto')) document.getElementById('account-contact').scrollIntoView();
   onClick('copy-code', async () => {
     await navigator.clipboard.writeText(actor.personal_code);
     notify('Código copiado.');
@@ -473,7 +503,7 @@ function coordinatorRequest() {
       ${textInput('phone', 'Celular chileno', '', 25, 'type="tel" autocomplete="tel"')}
       ${textInput('organization', 'Organización', '', 150, 'minlength="2"')}
       <label>Motivo de la solicitud <textarea name="reason" required minlength="10" maxlength="800" rows="3"></textarea></label>
-      <label>Contraseña <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+      <label>Contraseña <input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
       <div hidden><input name="website" tabindex="-1" autocomplete="off" aria-label="Sitio web"></div>
       <button type="submit">Enviar solicitud</button>
     </form><div class="actions"><button id="back-to-login" class="secondary">Ya tengo cuenta</button></div>
@@ -489,7 +519,7 @@ function coordinatorRequest() {
 function passwordSection(required = false) {
   const content = `<form id="change-password">
     <label>Contraseña actual <input name="current_password" type="password" autocomplete="current-password" required maxlength="128"></label>
-    <label>Nueva contraseña <input name="new_password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+    <label>Nueva contraseña <input name="new_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
     <button type="submit">Guardar contraseña</button>
   </form>`;
   return required ? '<section class="panel narrow"><h2>Cambia tu contraseña temporal</h2>' + content + '</section>' :
@@ -560,7 +590,8 @@ function eventEditor(event = {}) {
         <label>Comuna <select name="commune" aria-label="Comuna" required><option value="">Selecciona una comuna</option>
           ${communes.map(name => '<option value="' + escapeHtml(name) + '"' + (name === event.commune ? ' selected' : '') + '>' + escapeHtml(name) + '</option>').join('')}
         </select></label>
-        <label>Punto de referencia <select name="sector" aria-label="Punto de referencia" required></select></label>
+        <label>Punto de referencia (opcional) <select name="sector" aria-label="Punto de referencia"></select></label>
+        <label id="custom-reference" hidden>Referencia personalizada <input name="custom_reference" maxlength="80" required disabled></label>
         ${textInput('venue', 'Lugar', event.venue, 120)}
         ${textInput('address', 'Dirección', event.address, 180)}
         <label>Inicio (hora de Chile continental) <input name="starts" type="datetime-local" required value="${edit ? inputDate(event.starts) : ''}"></label>
@@ -670,17 +701,25 @@ function openEditor(event) {
   const form = document.getElementById('edit-event');
   const commune = form.elements.commune;
   const sector = form.elements.sector;
+  const custom = document.getElementById('custom-reference');
+  function toggleCustom() {
+    custom.hidden = sector.value !== 'custom';
+    form.elements.custom_reference.disabled = custom.hidden;
+  }
   function setReferenceOptions(selected) {
     const points = referencePoints[commune.value] || [];
-    sector.replaceChildren(new Option(points.length ? 'Selecciona un punto' : 'Selecciona primero una comuna', ''));
+    sector.replaceChildren(new Option('Sin referencia', ''));
     for (const point of points) sector.add(new Option(point.name, point.name));
-    if (event?.commune === commune.value && selected === event.sector && !points.some(point => point.name === selected)) {
+    sector.add(new Option('Agregar una referencia para este taller', 'custom'));
+    if (selected && event?.commune === commune.value && selected === event.sector && !points.some(point => point.name === selected)) {
       sector.add(new Option(selected + ' (sector anterior)', selected));
     }
     sector.value = selected || '';
+    toggleCustom();
   }
   setReferenceOptions(event?.sector);
   commune.addEventListener('change', () => setReferenceOptions(commune.value === event?.commune ? event.sector : ''));
+  sector.addEventListener('change', toggleCustom);
   const enableBrowserAI = form.querySelector('#enable-browser-ai');
   browserModelStatus().then(status => {
     enableBrowserAI.hidden = status !== 'downloadable' && status !== 'downloading';
@@ -754,8 +793,8 @@ async function renderRoster(event) {
   const panel = document.getElementById('roster');
   panel.hidden = false;
   panel.innerHTML = `<h2>${escapeHtml(event.title)}</h2>
-    ${table(['Vecino', 'Inscripción', 'Asistencia'], bookings.map(item => [
-      escapeHtml(item.name), status(item.status), item.attended_at ? escapeHtml(date(item.attended_at)) : '—'
+    ${table(['Vecino', 'Inscripción', 'Compañía', 'Asistencia'], bookings.map(item => [
+      escapeHtml(item.name), status(item.status), partyLabel(item.party), item.attended_at ? escapeHtml(date(item.attended_at)) : '—'
     ]), 'Todavía no hay inscripciones.')}
     ${event.status === 'published' ? `<form id="record-attendance" class="narrow">
       <label>Código personal del vecino <input name="personal_code" required maxlength="5" inputmode="numeric" pattern="[0-9]{5}" autocomplete="off" placeholder="12345"></label>
@@ -771,17 +810,19 @@ async function renderRoster(event) {
 }
 
 async function renderCoordinator(selected) {
-  const { events } = await api('/api/coordinator');
+  const { events, profile } = await api('/api/coordinator');
+  const canEditProfile = profile.next_change * 1000 <= Date.now();
   app.innerHTML = `<header class="editorial-heading">
     <p class="eyebrow">Modo Coordinador</p><h1>Gestión Comunitaria de Talleres</h1>
     <p class="lede">${escapeHtml(actor.name)} · Gestiona tus actividades, inscripciones y asistencias.</p>
     <div class="actions"><button id="logout" class="secondary">Cerrar sesión</button></div></header>
     <nav class="staff-tabs" aria-label="Panel de coordinación">
       <button id="tab-roster" class="secondary">Registro de asistencia</button>
-      <button id="tab-publish" class="secondary">+ Publicar nueva actividad</button>
+      <button id="tab-publish" class="secondary" ${profile.phone ? '' : 'disabled'}>+ Publicar nueva actividad</button>
       <button id="tab-own" class="secondary">Mis actividades publicadas</button>
       <button id="tab-metrics" class="secondary">Métricas de registro</button>
     </nav>
+    ${profile.phone ? '' : '<p class="panel">Pide al equipo de ChispaPlay que registre tu celular para publicar actividades y subir documentos.</p>'}
     <section class="panel" id="own-events"><h2>Mis actividades</h2>
       ${table(['Actividad', 'Confirmadas', 'En espera', 'Asistencias', 'Gestión'], events.map((event, index) => [
         '<a href="' + eventUrl(event.id) + '">' + escapeHtml(event.title) + '</a><br>' +
@@ -802,8 +843,48 @@ async function renderCoordinator(selected) {
       ]), 'Todavía no hay actividades.')}</section>
     ${passwordSection()}
     ${recoverySection()}
+    <details class="panel narrow" id="coordinator-profile"><summary>Datos de coordinación</summary>
+      <p>Usuario: ${escapeHtml(actor.username)} · Celular: ${escapeHtml(profile.phone || 'Sin registrar')}</p>
+      <p>Actualiza un dato cada 24 horas. El equipo de ChispaPlay gestiona los cambios de celular.</p>
+      ${canEditProfile ? `<form id="edit-coordinator-profile"><label>Dato a cambiar <select name="field" required>
+        <option value="username">Nombre de usuario</option><option value="name">Nombre u organización</option></select></label>
+        <label>Nuevo valor <input name="value" maxlength="150" required></label>
+        <label>Contraseña actual <input name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
+        <button type="submit">Guardar dato</button></form>` : `<p>Próximo cambio disponible el ${escapeHtml(date(profile.next_change))}.</p>`}
+    </details>
+    <details class="panel" id="coordinator-documents"><summary>Documentos privados</summary>
+      <p>Solo tú y el equipo CEO pueden acceder. Puedes guardar hasta tres PDF de 2 MB cada uno.</p>
+      ${table(['Archivo', 'Acción'], profile.documents.map((item, index) => [documentLink(item),
+        '<button class="secondary" id="remove-document-' + index + '">Eliminar</button>']), 'Aún no has subido documentos.')}
+      ${profile.phone ? `<form id="upload-document" class="narrow"><label>Documento PDF <input name="document" type="file" accept=".pdf,application/pdf" required></label>
+        <button type="submit">Subir documento</button></form>` : ''}
+    </details>
   `;
   connectStaff('coordinator');
+  onForm('edit-coordinator-profile', async fields => {
+    ({ actor } = await api('/api/coordinator/profile', fields));
+    await renderCoordinator();
+    document.getElementById('coordinator-profile').open = true;
+    notify('Dato actualizado. Puedes realizar otro cambio en 24 horas.');
+  });
+  const refreshDocuments = async message => {
+    await renderCoordinator();
+    document.getElementById('coordinator-documents').open = true;
+    notify(message);
+  };
+  onForm('upload-document', async ({ document: file }) => {
+    if (file.size > 2 * 1024 * 1024) throw new Error('El PDF debe pesar hasta 2 MB.');
+    const encoded = await asDataUrl(file);
+    await api('/api/coordinator/documents', { name: file.name, content: encoded.split(',')[1] });
+    await refreshDocuments('Documento subido.');
+  });
+  for (const [index, item] of profile.documents.entries()) {
+    onClick('remove-document-' + index, async () => {
+      if (!confirm('¿Eliminar este documento?')) return;
+      await api('/api/coordinator/documents/remove', { id: item.id });
+      await refreshDocuments('Documento eliminado.');
+    });
+  }
   openEditor();
   const show = (tab, panel) => {
     for (const [id, element] of [['tab-roster', 'roster'], ['tab-publish', 'editor'], ['tab-own', 'own-events'], ['tab-metrics', 'registration-metrics']]) {
@@ -898,7 +979,7 @@ async function renderCEO(search = '') {
       ${table(['Nombre', 'Teléfono', 'Registro', 'Historial'], data.neighbors.map((item, index) => [
         escapeHtml(item.name), escapeHtml(item.phone),
         escapeHtml(date(item.created)), '<div class="actions"><button class="secondary" id="history-' + index + '">Ver historial</button>' +
-          '<button class="secondary" id="recover-neighbor-' + index + '">Ayudar a recuperar acceso</button></div>'
+          (item.phone ? '<button class="secondary" id="recover-neighbor-' + index + '">Ayudar a recuperar acceso</button>' : '') + '</div>'
       ]), 'No hay vecinos para esta búsqueda.')}
     </section>
     <section class="panel" id="neighbor-history" hidden></section>
@@ -929,13 +1010,16 @@ async function renderCEO(search = '') {
       <details><summary>Crear cuenta de coordinador</summary><form id="create-staff" class="narrow">
         ${textInput('username', 'Usuario', '', 64, 'autocomplete="off" minlength="3"')}
         ${textInput('name', 'Nombre u organización', '', 120, 'minlength="2"')}
-        <label>Celular chileno (opcional) <input name="phone" type="tel" autocomplete="off" maxlength="25"></label>
-        <label>Contraseña temporal <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+        <label>Celular chileno <input name="phone" type="tel" autocomplete="off" maxlength="25" required></label>
+        <label>Contraseña temporal <input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
         <button type="submit">Crear cuenta</button>
         <p class="muted">El coordinador deberá cambiar la contraseña temporal en su primer ingreso.</p>
       </form></details>
       <div id="reset-panel" hidden></div>
     </section>
+    <details class="panel"><summary>Documentos privados de coordinación</summary>
+      ${table(['Organización', 'Archivo', 'Fecha'], data.documents.map(item => [escapeHtml(item.owner), documentLink(item), escapeHtml(date(item.created))]),
+        'Aún no se han subido documentos.')}</details>
     <section class="panel"><h2>Actividades</h2>
       ${table(['Actividad', 'Organiza', 'Confirmadas', 'En espera', 'Asistencias', 'Estado'], data.events.map((item, index) => [
         '<a href="' + eventUrl(item.id) + '">' + escapeHtml(item.title) + '</a><br>' + escapeHtml(date(item.starts)),
@@ -1024,7 +1108,7 @@ async function renderCEO(search = '') {
       const panel = document.getElementById('reset-panel');
       panel.innerHTML = `<form id="reset-password" class="narrow">
         <label>Nueva contraseña temporal para ${escapeHtml(staff.username)}
-          <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128">
+          <input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128">
         </label><button type="submit">Guardar contraseña temporal</button></form>`;
       panel.hidden = false;
       panel.querySelector('input').focus();

@@ -12,10 +12,11 @@ import sqlite3
 import traceback
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 
 import auth
 import ai
+import coordinator
 import events
 import management
 import notifications
@@ -42,11 +43,13 @@ class Handler(BaseHTTPRequestHandler):
         if str(code).startswith("5"):
             self.log_message("%s -> %s", self.command, code)
 
-    def send(self, content, mime, status=200, cookie=None, cache="no-store", head=False):
+    def send(self, content, mime, status=200, cookie=None, cache="no-store", head=False, attachment=None):
         self.send_response(status)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(content)))
         self.send_header("Cache-Control", cache)
+        if attachment:
+            self.send_header("Content-Disposition", "attachment; filename=chispaplay.pdf; filename*=UTF-8''" + quote(attachment, safe=""))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
         connect = "; connect-src 'self' http://127.0.0.1:18747" if self.path.split("?", 1)[0] == "/coordinador.html" else ""
@@ -101,6 +104,13 @@ class Handler(BaseHTTPRequestHandler):
                     if not photo:
                         raise APIError(404, "Foto no disponible.")
                 return self.send(photo["content"], photo["mime"], cache="no-cache")
+            if match := re.fullmatch(r"/api/coordinator/documents/([0-9a-f]{32})", path):
+                with database() as db:
+                    actor = auth.actor_for(db, token, "coordinator", "ceo")
+                    document = db.execute("SELECT owner_id,name,content FROM coordinator_documents WHERE id=?", (match[1],)).fetchone()
+                    if not document or (actor["role"] != "ceo" and document["owner_id"] != actor["id"]):
+                        raise APIError(404, "Documento no encontrado.")
+                return self.send(document["content"], "application/octet-stream", attachment=document["name"])
             return self.json(self.get(path, parse_qs(parsed.query), token))
         except (BrokenPipeError, ConnectionResetError, TimeoutError):
             return
@@ -183,7 +193,7 @@ class Handler(BaseHTTPRequestHandler):
                 return {"event": events.result(event), "booking": booking["status"] if booking else None}
             if path == "/api/me":
                 actor = auth.actor_for(db, token, "neighbor")
-                bookings = db.execute("""SELECT e.id,e.title,e.starts,e.status AS event_status,b.status
+                bookings = db.execute("""SELECT e.id,e.title,e.starts,e.status AS event_status,b.status,b.party
                     FROM bookings b JOIN events e ON e.id=b.event_id
                     WHERE b.neighbor_id=? AND b.status!='cancelled' ORDER BY e.starts DESC""", (actor["id"],))
                 reports = db.execute("""SELECT r.id,r.status,e.title FROM reports r JOIN events e ON e.id=r.event_id
@@ -192,11 +202,11 @@ class Handler(BaseHTTPRequestHandler):
                         "reports": [dict(r) for r in reports], "notifications": notifications.preferences(db, actor)}
             if path == "/api/coordinator":
                 actor = auth.actor_for(db, token, "coordinator")
-                return {"events": events.catalog(db, owner=actor["id"])}
+                return {"events": events.catalog(db, owner=actor["id"]), "profile": coordinator.profile(db, actor)}
             if match := re.fullmatch(r"/api/coordinator/events/([0-9a-f]{32})/bookings", path):
                 actor = auth.actor_for(db, token, "coordinator")
                 events.require_owner(events.event_row(db, match[1]), actor)
-                rows = db.execute("""SELECT n.name,b.status,b.created,b.attended_at
+                rows = db.execute("""SELECT n.name,b.status,b.created,b.attended_at,b.party
                     FROM bookings b JOIN neighbors n ON n.id=b.neighbor_id
                     WHERE b.event_id=? AND b.status!='cancelled' ORDER BY b.queue_order""", (match[1],))
                 return {"bookings": [dict(r) for r in rows]}
@@ -218,10 +228,14 @@ class Handler(BaseHTTPRequestHandler):
             return auth.login_account(body, self.client_ip(), token)
         if path == "/api/account/recovery-code":
             return auth.issue_recovery_code(body, token), None
+        if path == "/api/account/contact":
+            return auth.update_neighbor(body, token), None
         if path == "/api/account/reset-password":
             return auth.reset_password(body, self.client_ip()), None
         if path == "/api/coordinator/request":
             return auth.request_coordinator(body, self.client_ip()), None
+        if path == "/api/coordinator/profile":
+            return coordinator.change_profile(body, token), None
         if path == "/api/coordinator/suggest":
             with database() as db:
                 actor = auth.actor_for(db, token, "coordinator")
@@ -260,9 +274,16 @@ class Handler(BaseHTTPRequestHandler):
             event = events.event_row(db, match[1])
             if match[2] == "report":
                 return management.report(db, actor, event["id"], body)
-            return events.reserve(db, actor, event, match[2] == "cancel")
+            return events.reserve(db, actor, event, match[2] == "cancel", body.get("party"))
         if path == "/api/coordinator/events":
-            return events.save(db, auth.actor_for(db, token, "coordinator"), body)
+            actor = auth.actor_for(db, token, "coordinator")
+            if not actor["phone"]:
+                raise APIError(400, "Pide al equipo que registre tu celular antes de publicar.")
+            return events.save(db, actor, body)
+        if path == "/api/coordinator/documents":
+            return coordinator.upload(db, auth.actor_for(db, token, "coordinator"), body)
+        if path == "/api/coordinator/documents/remove":
+            return coordinator.remove(db, auth.actor_for(db, token, "coordinator"), body)
         if match := re.fullmatch(r"/api/coordinator/events/([0-9a-f]{32})/(edit|cancel|attendance)", path):
             actor = auth.actor_for(db, token, "coordinator")
             event = events.event_row(db, match[1])
