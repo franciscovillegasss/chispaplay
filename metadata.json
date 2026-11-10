@@ -1,6 +1,0 @@
-{
-  "name": "ChispaPlay",
-  "description": "Ecosistema hiperlocal de talleres comunitarios a 15 minutos, pases vecinales, control de asistencia en plaza y seguridad barrial.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

@@ -1,0 +1,8 @@
+{
+  "name": "chispaplay-local-ai",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "node-llama-cpp": "3.22.3"
+  }
+}

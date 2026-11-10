@@ -1,677 +1,370 @@
 #!/usr/bin/env python3
-"""
-=============================================================================
-ARCHIVO: server.py
-Servidor Backend Autónomo y Base de Datos SQLite para ChispaPlay
-- API REST Completa (Vecinos, Asistencia QR, Actividades, Desperfectos, CEO)
-- Almacenamiento Persistente en Base de Datos SQLite (chispaplay.db)
-- Servidor de Archivos Estáticos con Soporte Completo de Módulos ES6
-- Subida de Fotografías para la Cartelera de Plazas
-- Modo CEO Protegido con Clave Maestra de Seguridad
-=============================================================================
-"""
+"""Same-origin HTTP server and CLI for ChispaPlay."""
 
-import os
-import sys
+import argparse
+import getpass
+import ipaddress
 import json
-import sqlite3
-import hashlib
 import mimetypes
-import uuid
-import base64
-from datetime import datetime
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+import os
+import re
+import sqlite3
+import traceback
+from http.cookies import CookieError, SimpleCookie
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, quote, urlsplit
 
-PORT = int(os.environ.get("PORT", 8080))
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "chispaplay.db")
-UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
-CEO_MASTER_KEY = os.environ.get("CHISPA_CEO_KEY", "CHISPA-CEO-2026")
+import auth
+import ai
+import coordinator
+import events
+import management
+import notifications
+from core import APIError, ROOT, audit, database, init_db, now, prune, rate_limit
+from geography import COMMUNES, REFERENCE_POINTS
 
-# Asegurar directorios
-os.makedirs(UPLOADS_DIR, exist_ok=True)
+HOST = os.environ.get("HOST", "127.0.0.1")
+PORT = int(os.environ.get("PORT", "8080"))
+ORIGIN = os.environ.get("CHISPA_PUBLIC_ORIGIN", "").rstrip("/")
+LOCAL_HTTP = HOST in ("127.0.0.1", "localhost") and not ORIGIN
+ON_RENDER = os.environ.get("RENDER") == "true" and not LOCAL_HTTP
+COOKIE = "chispa_session" if LOCAL_HTTP else "__Host-chispa_session"
+MAX_BODY = 4 * ((events.MAX_IMAGE + 2) // 3) + 16_384
+PAGES = {"index.html", "actividades.html", "actividad.html", "perfil.html", "nosotros.html", "coordinador.html", "ceo.html"}
+ASSETS = {"css/global.css", "css/editorial.css", "js/app.js", "js/editorial.js"}
 
-# =============================================================================
-# INICIALIZACIÓN DE BASE DE DATOS SQLITE
-# =============================================================================
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
 
-    # Tabla de Vecinos Registrados
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        token TEXT UNIQUE NOT NULL,
-        name TEXT NOT NULL,
-        contact TEXT NOT NULL,
-        commune TEXT NOT NULL,
-        ip_address TEXT,
-        created_at TEXT NOT NULL
-    )
-    """)
+class Handler(BaseHTTPRequestHandler):
+    def setup(self):
+        self.request.settimeout(15)
+        super().setup()
 
-    # Tabla de Actividades y Talleres
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS activities (
-        id TEXT PRIMARY KEY,
-        commune TEXT NOT NULL,
-        sector_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        journalistic_subtitle TEXT,
-        category TEXT NOT NULL,
-        category_tag TEXT,
-        timeframe TEXT,
-        date_label TEXT,
-        location_name TEXT NOT NULL,
-        address TEXT NOT NULL,
-        lat REAL NOT NULL,
-        lng REAL NOT NULL,
-        image_url TEXT,
-        capacity INTEGER DEFAULT 25,
-        enrolled_count INTEGER DEFAULT 0,
-        waitlist_count INTEGER DEFAULT 0,
-        instructor_name TEXT,
-        instructor_role TEXT,
-        instructor_whatsapp TEXT,
-        editorial_verdict TEXT,
-        what_to_bring TEXT,
-        community_notice TEXT,
-        schedule_json TEXT,
-        amenities_json TEXT,
-        is_custom INTEGER DEFAULT 0,
-        created_at TEXT NOT NULL
-    )
-    """)
+    def log_request(self, code="-", size="-"):
+        if str(code).startswith("5"):
+            self.log_message("%s -> %s", self.command, code)
 
-    # Tabla de Asistencias (Check-ins QR y GPS)
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS attendances (
-        id TEXT PRIMARY KEY,
-        user_token TEXT NOT NULL,
-        user_name TEXT NOT NULL,
-        activity_id TEXT NOT NULL,
-        activity_title TEXT NOT NULL,
-        method TEXT NOT NULL,
-        validated_by TEXT,
-        timestamp TEXT NOT NULL
-    )
-    """)
-
-    # Tabla de Reservas 1-Clic
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS reservations (
-        id TEXT PRIMARY KEY,
-        user_token TEXT NOT NULL,
-        activity_id TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
-        UNIQUE(user_token, activity_id)
-    )
-    """)
-
-    # Tabla de Reportes de Desperfectos en Plazas
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS defect_reports (
-        id TEXT PRIMARY KEY,
-        folio TEXT NOT NULL,
-        activity_id TEXT,
-        location_name TEXT NOT NULL,
-        defect_type TEXT NOT NULL,
-        detail TEXT NOT NULL,
-        status TEXT DEFAULT 'PENDIENTE',
-        created_at TEXT NOT NULL
-    )
-    """)
-
-    # Tabla de Reseñas Vecinales
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS reviews (
-        id TEXT PRIMARY KEY,
-        activity_id TEXT NOT NULL,
-        author_name TEXT NOT NULL,
-        rating INTEGER DEFAULT 5,
-        comment TEXT NOT NULL,
-        created_at TEXT NOT NULL
-    )
-    """)
-
-    # Tabla de Suscriptores de Radar Vecinal WhatsApp
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS radar_subscribers (
-        id TEXT PRIMARY KEY,
-        phone TEXT NOT NULL,
-        commune TEXT NOT NULL,
-        sector TEXT NOT NULL,
-        created_at TEXT NOT NULL
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# =============================================================================
-# MANEJADOR HTTP PRINCIPAL (API REST + STATIC FILES)
-# =============================================================================
-class ChispaPlayHandler(BaseHTTPRequestHandler):
-
-    def _set_cors_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
-
-    def do_OPTIONS(self):
-        self.send_response(204)
-        self._set_cors_headers()
-        self.end_headers()
-
-    def _send_json(self, data, status=200):
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+    def send(self, content, mime, status=200, cookie=None, cache="no-store", head=False, attachment=None):
         self.send_response(status)
-        self._set_cors_headers()
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Cache-Control", cache)
+        if attachment:
+            self.send_header("Content-Disposition", "attachment; filename=chispaplay.pdf; filename*=UTF-8''" + quote(attachment, safe=""))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "same-origin")
+        connect = "; connect-src 'self' http://127.0.0.1:18747" if self.path.split("?", 1)[0] == "/coordinador.html" else ""
+        self.send_header("Content-Security-Policy", "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; frame-src https://maps.google.com https://www.google.com" + connect)
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)")
+        if not LOCAL_HTTP:
+            self.send_header("Strict-Transport-Security", "max-age=31536000")
+        if cookie is not None:
+            token, lifetime = cookie
+            secure = "" if LOCAL_HTTP else "; Secure"
+            self.send_header("Set-Cookie", f"{COOKIE}={token}; Max-Age={lifetime}; Path=/; HttpOnly; SameSite=Strict{secure}")
         self.end_headers()
-        self.wfile.write(body)
-
-    def _read_json_body(self):
-        try:
-            length = int(self.headers.get("Content-Length", 0))
-            if length == 0:
-                return {}
-            raw = self.rfile.read(length).decode("utf-8")
-            return json.loads(raw)
-        except Exception:
-            return {}
-
-    def _verify_ceo_auth(self):
-        auth = self.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            token = auth[7:].strip()
-            # Valid token is either master key or valid session hash
-            expected = hashlib.sha256(CEO_MASTER_KEY.encode()).hexdigest()
-            return token == CEO_MASTER_KEY or token == expected
-        return False
-
-    # -------------------------------------------------------------------------
-    # ENTRADA GET
-    # -------------------------------------------------------------------------
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        path = parsed.path
-        params = parse_qs(parsed.query)
-
-        # Rutas API
-        if path.startswith("/api/"):
-            return self._handle_api_get(path, params)
-
-        # Servidor de archivos estáticos
-        return self._serve_static(path)
-
-    def _handle_api_get(self, path, params):
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-
-        try:
-            if path == "/api/health":
-                cur.execute("SELECT COUNT(*) FROM users")
-                u_count = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM attendances")
-                a_count = cur.fetchone()[0]
-                return self._send_json({
-                    "status": "online",
-                    "app": "ChispaPlay API v2.0",
-                    "timestamp": datetime.now().isoformat(),
-                    "users_count": u_count,
-                    "attendances_count": a_count
-                })
-
-            elif path == "/api/activities":
-                commune = params.get("commune", [None])[0]
-                if commune:
-                    cur.execute("SELECT * FROM activities WHERE commune = ? ORDER BY created_at DESC", (commune,))
-                else:
-                    cur.execute("SELECT * FROM activities ORDER BY created_at DESC")
-                rows = [dict(r) for r in cur.fetchall()]
-                # Parse JSON fields
-                for r in rows:
-                    try:
-                        r["schedule"] = json.loads(r.get("schedule_json") or "[]")
-                    except Exception:
-                        r["schedule"] = []
-                    try:
-                        r["amenities"] = json.loads(r.get("amenities_json") or "{}")
-                    except Exception:
-                        r["amenities"] = {}
-                return self._send_json(rows)
-
-            elif path == "/api/reviews":
-                activity_id = params.get("activityId", [None])[0]
-                if activity_id:
-                    cur.execute("SELECT * FROM reviews WHERE activity_id = ? ORDER BY created_at DESC", (activity_id,))
-                else:
-                    cur.execute("SELECT * FROM reviews ORDER BY created_at DESC")
-                rows = [dict(r) for r in cur.fetchall()]
-                return self._send_json(rows)
-
-            elif path == "/api/ceo/metrics":
-                if not self._verify_ceo_auth():
-                    return self._send_json({"error": "No autorizado para acceder a métricas CEO"}, 401)
-
-                # Total vecinos
-                cur.execute("SELECT COUNT(*) FROM users")
-                total_users = cur.fetchone()[0]
-
-                # Total asistencias
-                cur.execute("SELECT COUNT(*) FROM attendances")
-                total_attendances = cur.fetchone()[0]
-
-                # Desglose de asistencias por método
-                cur.execute("SELECT method, COUNT(*) as count FROM attendances GROUP BY method")
-                attendances_by_method = {r["method"]: r["count"] for r in cur.fetchall()}
-
-                # Reportes de desperfectos
-                cur.execute("SELECT * FROM defect_reports ORDER BY created_at DESC")
-                defects = [dict(r) for r in cur.fetchall()]
-
-                # Vecinos registrados recientes con detalle
-                cur.execute("SELECT id, token, name, contact, commune, created_at FROM users ORDER BY created_at DESC")
-                users_list = [dict(r) for r in cur.fetchall()]
-
-                # Registro detallado de asistencias
-                cur.execute("SELECT * FROM attendances ORDER BY timestamp DESC LIMIT 100")
-                attendance_logs = [dict(r) for r in cur.fetchall()]
-
-                # Radar WhatsApp
-                cur.execute("SELECT * FROM radar_subscribers ORDER BY created_at DESC")
-                radar_list = [dict(r) for r in cur.fetchall()]
-
-                return self._send_json({
-                    "summary": {
-                        "total_users": total_users,
-                        "total_attendances": total_attendances,
-                        "qr_scans": attendances_by_method.get("QR_SCAN", 0),
-                        "gps_validations": attendances_by_method.get("GPS_CHECKIN", 0),
-                        "total_defects": len(defects),
-                        "total_radar_subscribers": len(radar_list)
-                    },
-                    "users": users_list,
-                    "defects": defects,
-                    "attendance_logs": attendance_logs,
-                    "radar_subscribers": radar_list
-                })
-
-            elif path == "/api/users":
-                if not self._verify_ceo_auth():
-                    return self._send_json({"error": "No autorizado"}, 401)
-                cur.execute("SELECT * FROM users ORDER BY created_at DESC")
-                return self._send_json([dict(r) for r in cur.fetchall()])
-
-            else:
-                return self._send_json({"error": "Ruta no encontrada"}, 404)
-
-        finally:
-            conn.close()
-
-    # -------------------------------------------------------------------------
-    # ENTRADA POST
-    # -------------------------------------------------------------------------
-    def do_POST(self):
-        parsed = urlparse(self.path)
-        path = parsed.path
-        body = self._read_json_body()
-
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-
-        try:
-            # 1. Login CEO
-            if path == "/api/ceo/login":
-                key = body.get("password", "").strip()
-                if key == CEO_MASTER_KEY or key == "CHISPA-CEO-2026":
-                    token = hashlib.sha256(CEO_MASTER_KEY.encode()).hexdigest()
-                    return self._send_json({
-                        "authorized": True,
-                        "token": token,
-                        "message": "Acceso concedido al Panel de Inteligencia CEO"
-                    })
-                return self._send_json({"authorized": False, "error": "Clave Maestra CEO inválida"}, 403)
-
-            # 2. Registro de Vecino
-            elif path == "/api/users/register":
-                name = body.get("name", "").strip()
-                contact = body.get("contact", "").strip()
-                commune = body.get("commune", "maipu").strip().lower()
-
-                if not name:
-                    return self._send_json({"error": "El nombre es obligatorio"}, 400)
-
-                # Generar o recuperar token
-                cur.execute("SELECT * FROM users WHERE contact = ? AND commune = ?", (contact, commune))
-                existing = cur.fetchone()
-                if existing:
-                    return self._send_json(dict(existing))
-
-                user_id = f"usr_{uuid.uuid4().hex[:8]}"
-                suffix = f"{abs(hash(contact or name)) % 9000 + 1000}"
-                commune_prefix = "VALPO" if commune == "valparaiso" else "MAIPU"
-                token = f"CHISPA-{commune_prefix}-{suffix}"
-                now = datetime.now().isoformat()
-                client_ip = self.client_address[0]
-
-                cur.execute("""
-                INSERT INTO users (id, token, name, contact, commune, ip_address, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (user_id, token, name, contact, commune, client_ip, now))
-                conn.commit()
-
-                return self._send_json({
-                    "id": user_id,
-                    "token": token,
-                    "name": name,
-                    "contact": contact,
-                    "commune": commune,
-                    "created_at": now
-                })
-
-            # 3. Validación de Asistencia QR por Coordinador
-            elif path == "/api/attendance/scan-qr":
-                qr_payload_raw = body.get("qrData") or body.get("token") or body.get("userToken") or body
-                activity_id = body.get("activityId", "act-general")
-                activity_title = body.get("activityTitle", "Taller en Plaza")
-                validated_by = body.get("validatedBy", "Coordinador en Terreno")
-
-                user_token = None
-                user_name = "Vecino en Terreno"
-
-                # Intentar parsear si viene como JSON string o token directo
-                if isinstance(qr_payload_raw, dict):
-                    user_token = qr_payload_raw.get("token")
-                    user_name = qr_payload_raw.get("name") or user_name
-                elif isinstance(qr_payload_raw, str):
-                    try:
-                        parsed_qr = json.loads(qr_payload_raw)
-                        user_token = parsed_qr.get("token")
-                        user_name = parsed_qr.get("name") or user_name
-                    except Exception:
-                        user_token = qr_payload_raw.strip()
-
-                if not user_token:
-                    return self._send_json({"error": "Código QR o Token no válido"}, 400)
-
-                # Buscar datos del vecino si existe en base
-                cur.execute("SELECT * FROM users WHERE token = ?", (user_token,))
-                u_row = cur.fetchone()
-                if u_row:
-                    user_name = u_row["name"]
-
-                att_id = f"att_{uuid.uuid4().hex[:8]}"
-                now = datetime.now().isoformat()
-
-                cur.execute("""
-                INSERT INTO attendances (id, user_token, user_name, activity_id, activity_title, method, validated_by, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (att_id, user_token, user_name, activity_id, activity_title, "QR_SCAN", validated_by, now))
-
-                # Incrementar conteo si la actividad existe en la BD
-                cur.execute("UPDATE activities SET enrolled_count = enrolled_count + 1 WHERE id = ?", (activity_id,))
-
-                conn.commit()
-
-                return self._send_json({
-                    "success": True,
-                    "attendance_id": att_id,
-                    "user_token": user_token,
-                    "user_name": user_name,
-                    "activity_title": activity_title,
-                    "timestamp": now,
-                    "message": f"¡Asistencia verificada correctamente para {user_name}!"
-                })
-
-            # 4. Asistencia por Check-In GPS Vecinal
-            elif path == "/api/attendance/gps-checkin":
-                user_token = body.get("userToken", "VECINO-GPS")
-                user_name = body.get("userName", "Vecino Autenticado")
-                activity_id = body.get("activityId", "")
-                activity_title = body.get("activityTitle", "Taller")
-
-                att_id = f"att_gps_{uuid.uuid4().hex[:8]}"
-                now = datetime.now().isoformat()
-
-                cur.execute("""
-                INSERT INTO attendances (id, user_token, user_name, activity_id, activity_title, method, validated_by, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (att_id, user_token, user_name, activity_id, activity_title, "GPS_CHECKIN", "GPS Celular", now))
-                conn.commit()
-
-                return self._send_json({
-                    "success": True,
-                    "attendance_id": att_id,
-                    "message": "Asistencia validada en terreno vía GPS"
-                })
-
-            # 5. Subida de Imagen para Taller (Base64 o File)
-            elif path == "/api/upload-image":
-                image_data = body.get("imageData") or body.get("data")
-                filename = body.get("filename") or body.get("name") or f"taller_{uuid.uuid4().hex[:8]}.jpg"
-                filename = body.get("filename", f"taller_{uuid.uuid4().hex[:8]}.jpg")
-
-                if not image_data:
-                    return self._send_json({"error": "No se recibió ninguna imagen"}, 400)
-
-                # Separar cabecera Data URL si existe
-                if "," in image_data:
-                    header, image_data = image_data.split(",", 1)
-                    if "png" in header:
-                        filename = filename.replace(".jpg", ".png")
-
-                file_bytes = base64.b64decode(image_data)
-                target_path = os.path.join(UPLOADS_DIR, filename)
-
-                with open(target_path, "wb") as f:
-                    f.write(file_bytes)
-
-                public_url = f"/uploads/{filename}"
-                return self._send_json({
-                    "success": True,
-                    "url": public_url,
-                    "filename": filename
-                })
-
-            # 6. Crear Nueva Actividad / Taller con Dirección y Coordenadas
-            elif path == "/api/activities":
-                act_id = body.get("id") or f"custom-{uuid.uuid4().hex[:6]}"
-                commune = body.get("commune", "maipu")
-                sector_id = body.get("sectorId", "ref-general")
-                title = body.get("title", "").strip()
-                subtitle = body.get("journalisticSubtitle", "").strip()
-                category = body.get("category", "Comunidad & Plazas")
-                category_tag = body.get("categoryTag", category.upper())
-                timeframe = body.get("timeframe", "hoy")
-                date_label = body.get("dateLabel", "Hoy · 17:00 hrs")
-                location_name = body.get("locationName", "Plaza de Barrio").strip()
-                address = body.get("address", location_name).strip()
-                lat = float(body.get("lat", -33.5112))
-                lng = float(body.get("lng", -70.7578))
-                image_url = body.get("imageUrl") or "https://images.unsplash.com/photo-1516339901601-2e1b62dc0c45?w=900"
-                capacity = int(body.get("capacity", 25))
-                instructor_name = body.get("instructorName", "Monitor Vecinal")
-                instructor_role = body.get("instructorRole", "Monitor Comunitario")
-                instructor_whatsapp = body.get("instructorWhatsapp", "+56 9 1234 5678")
-                verdict = body.get("editorialVerdict", "Taller abierto en plaza comunitaria.")
-                what_to_bring = body.get("whatToBring", "Ropa cómoda y agua.")
-                community_notice = body.get("communityNotice", "Llega 10 minutos antes.")
-                schedule_json = json.dumps(body.get("schedule", []))
-                amenities_json = json.dumps(body.get("amenities", {
-                    "shade": True, "restrooms": True, "ramps": True, "neuroFriendly": True
-                }))
-                now = datetime.now().isoformat()
-
-                cur.execute("""
-                INSERT OR REPLACE INTO activities (
-                    id, commune, sector_id, title, journalistic_subtitle, category, category_tag,
-                    timeframe, date_label, location_name, address, lat, lng, image_url, capacity,
-                    instructor_name, instructor_role, instructor_whatsapp, editorial_verdict,
-                    what_to_bring, community_notice, schedule_json, amenities_json, is_custom, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-                """, (
-                    act_id, commune, sector_id, title, subtitle, category, category_tag,
-                    timeframe, date_label, location_name, address, lat, lng, image_url, capacity,
-                    instructor_name, instructor_role, instructor_whatsapp, verdict,
-                    what_to_bring, community_notice, schedule_json, amenities_json, now
-                ))
-                conn.commit()
-
-                return self._send_json({
-                    "success": True,
-                    "id": act_id,
-                    "message": "Actividad guardada exitosamente en la base de datos comunitaria"
-                })
-
-            # 7. Reportar Desperfecto en Plaza
-            elif path == "/api/defects":
-                folio = f"PLAZA-{uuid.uuid4().hex[:4].upper()}"
-                act_id = body.get("activityId", "")
-                loc = body.get("locationName", "Plaza Comunitaria")
-                def_type = body.get("defectType", "Mantenimiento General")
-                detail = body.get("detail", "")
-                now = datetime.now().isoformat()
-
-                cur.execute("""
-                INSERT INTO defect_reports (id, folio, activity_id, location_name, defect_type, detail, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (f"def_{uuid.uuid4().hex[:8]}", folio, act_id, loc, def_type, detail, now))
-                conn.commit()
-
-                return self._send_json({
-                    "success": True,
-                    "folio": folio,
-                    "message": f"Reporte #{folio} registrado en base de datos para despacho municipal."
-                })
-
-            # 8. Guardar Reseña Vecinal
-            elif path == "/api/reviews":
-                act_id = body.get("activityId")
-                author = body.get("authorName", "Vecino anónimo")
-                rating = int(body.get("rating", 5))
-                comment = body.get("comment", "").strip()
-
-                if not act_id or not comment:
-                    return self._send_json({"error": "Actividad y comentario requeridos"}, 400)
-
-                rev_id = f"rev_{uuid.uuid4().hex[:8]}"
-                now = datetime.now().isoformat()
-
-                cur.execute("""
-                INSERT INTO reviews (id, activity_id, author_name, rating, comment, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """, (rev_id, act_id, author, rating, comment, now))
-                conn.commit()
-
-                return self._send_json({
-                    "success": True,
-                    "id": rev_id,
-                    "author": author,
-                    "rating": rating,
-                    "comment": comment,
-                    "date": "Recién publicado"
-                })
-
-            # 9. Suscripción a Radar WhatsApp
-            elif path == "/api/radar-subscribe":
-                phone = body.get("phone", "").strip()
-                commune = body.get("commune", "maipu")
-                sector = body.get("sector", "General")
-                now = datetime.now().isoformat()
-
-                cur.execute("""
-                INSERT INTO radar_subscribers (id, phone, commune, sector, created_at)
-                VALUES (?, ?, ?, ?, ?)
-                """, (f"rad_{uuid.uuid4().hex[:8]}", phone, commune, sector, now))
-                conn.commit()
-
-                return self._send_json({"success": True, "message": "Suscrito al radar semanal"})
-
-            else:
-                return self._send_json({"error": "Endpoint POST no encontrado"}, 404)
-
-        finally:
-            conn.close()
-
-    # -------------------------------------------------------------------------
-    # SERVIDOR DE ARCHIVOS ESTÁTICOS
-    # -------------------------------------------------------------------------
-    def _serve_static(self, path):
-        if path == "/" or not path:
-            path = "/index.html"
-
-        # Sanear ruta para prevenir Directory Traversal
-        clean_path = path.lstrip("/").replace("\\", "/")
-        file_path = os.path.join(BASE_DIR, clean_path)
-
-        if not os.path.exists(file_path) or os.path.isdir(file_path):
-            self.send_response(404)
-            self._set_cors_headers()
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(f"Archivo no encontrado: {path}".encode("utf-8"))
-            return
-
-        # Detección de tipo MIME
-        mime_type, _ = mimetypes.guess_type(file_path)
-        if not mime_type:
-            if file_path.endswith(".js"):
-                mime_type = "application/javascript; charset=utf-8"
-            elif file_path.endswith(".css"):
-                mime_type = "text/css; charset=utf-8"
-            elif file_path.endswith(".html"):
-                mime_type = "text/html; charset=utf-8"
-            elif file_path.endswith(".json"):
-                mime_type = "application/json; charset=utf-8"
-            else:
-                mime_type = "application/octet-stream"
-        elif "javascript" in mime_type or file_path.endswith(".js"):
-            mime_type = "application/javascript; charset=utf-8"
-
-        try:
-            with open(file_path, "rb") as f:
-                content = f.read()
-
-            self.send_response(200)
-            self._set_cors_headers()
-            self.send_header("Content-Type", mime_type)
-            self.send_header("Content-Length", str(len(content)))
-            self.send_header("Cache-Control", "no-cache, must-revalidate")
-            self.end_headers()
+        if not head:
             self.wfile.write(content)
-        except Exception as e:
-            self.send_response(500)
-            self.end_headers()
-            self.wfile.write(f"Error leyendo archivo: {e}".encode("utf-8"))
+
+    def json(self, data, status=200, cookie=None):
+        self.send(json.dumps(data, ensure_ascii=False).encode(), "application/json; charset=utf-8", status, cookie)
+
+    def do_GET(self):
+        self.dispatch()
+
+    def do_HEAD(self):
+        self.dispatch(head=True)
+
+    def do_POST(self):
+        self.dispatch(write=True)
+
+    def dispatch(self, write=False, head=False):
+        try:
+            parsed = urlsplit(self.path)
+            path = parsed.path
+            if not write and not path.startswith("/api/"):
+                relative = path.removeprefix("/") or "index.html"
+                if relative not in PAGES | ASSETS:
+                    raise APIError(404, "Página no encontrada.")
+                file = ROOT / relative
+                return self.send(file.read_bytes(), f"{mimetypes.guess_type(file)[0]}; charset=utf-8",
+                                 cache="no-cache", head=head)
+            if head:
+                raise APIError(405, "Método no admitido.")
+            token = self.cookie_token()
+            if write:
+                self.check_origin()
+                if not path.startswith("/api/"):
+                    raise APIError(404, "Ruta no encontrada.")
+                data, cookie = self.post(path, self.read_json(), token)
+                return self.json(data, cookie=cookie)
+            if match := re.fullmatch(r"/api/events/([0-9a-f]{32})/photo", path):
+                with database() as db:
+                    photo = db.execute("""SELECT p.mime,p.content FROM photos p JOIN events e ON e.id=p.event_id
+                        WHERE e.id=? AND e.status='published'""", (match[1],)).fetchone()
+                    if not photo:
+                        raise APIError(404, "Foto no disponible.")
+                return self.send(photo["content"], photo["mime"], cache="no-cache")
+            if match := re.fullmatch(r"/api/coordinator/documents/([0-9a-f]{32})", path):
+                with database() as db:
+                    actor = auth.actor_for(db, token, "coordinator", "ceo")
+                    document = db.execute("SELECT owner_id,name,content FROM coordinator_documents WHERE id=?", (match[1],)).fetchone()
+                    if not document or (actor["role"] != "ceo" and document["owner_id"] != actor["id"]):
+                        raise APIError(404, "Documento no encontrado.")
+                return self.send(document["content"], "application/octet-stream", attachment=document["name"])
+            return self.json(self.get(path, parse_qs(parsed.query), token))
+        except (BrokenPipeError, ConnectionResetError, TimeoutError):
+            return
+        except APIError as error:
+            if head:
+                return self.send(b"", "text/plain", error.status, head=True)
+            self.json({"error": error.message}, error.status)
+        except sqlite3.OperationalError:
+            traceback.print_exc()
+            self.json({"error": "El servicio está ocupado. Intenta nuevamente."}, 503)
+        except Exception:
+            traceback.print_exc()
+            self.json({"error": "Ocurrió un error interno."}, 500)
+
+    def check_origin(self):
+        origin = self.headers.get("Origin")
+        expected = ORIGIN or f"{'http' if LOCAL_HTTP else 'https'}://{self.headers.get('Host', '')}"
+        if self.headers.get("Sec-Fetch-Site") == "cross-site" or (origin and origin != expected):
+            raise APIError(403, "Origen no autorizado.")
+
+    def read_json(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            raise APIError(400, "Solicitud inválida.") from None
+        if not 0 < length <= MAX_BODY:
+            raise APIError(413, "Solicitud demasiado grande o vacía.")
+        if self.headers.get_content_type() != "application/json":
+            raise APIError(415, "Usa el formato JSON.")
+        try:
+            body = json.loads(self.rfile.read(length))
+        except (ValueError, RecursionError):
+            raise APIError(400, "Solicitud inválida.") from None
+        if not isinstance(body, dict):
+            raise APIError(400, "Solicitud inválida.")
+        return body
+
+    def cookie_token(self):
+        try:
+            entry = SimpleCookie(self.headers.get("Cookie", "")).get(COOKIE)
+            if entry and re.fullmatch(r"[A-Za-z0-9_-]{43}", entry.value):
+                return entry.value
+        except CookieError:
+            pass
+        return None
+
+    def client_ip(self):
+        return self.client_network()[0]
+
+    def client_network(self):
+        if ON_RENDER:
+            value, source = self.headers.get("CF-Connecting-IP", "").strip(), "render_edge"
+        elif os.environ.get("CHISPA_TRUST_PROXY") == "1":
+            value, source = self.headers.get("X-Forwarded-For", "").split(",")[-1].strip(), "trusted_proxy"
+        else:
+            return self.client_address[0], "connection"
+        try:
+            return str(ipaddress.ip_address(value)), source
+        except ValueError:
+            return self.client_address[0], "connection"
+
+    def get(self, path, params, token):
+        with database() as db:
+            if path == "/api/health":
+                db.execute("SELECT 1 FROM staff LIMIT 1").fetchone()
+                return {"status": "online"}
+            if path == "/api/communes":
+                return {"communes": list(COMMUNES), "references": REFERENCE_POINTS}
+            if path == "/api/session":
+                return {"actor": auth.public_actor(auth.actor_for(db, token))}
+            if path == "/api/events":
+                return {"events": events.catalog(db)}
+            if match := re.fullmatch(r"/api/events/([0-9a-f]{32})", path):
+                event = events.event_row(db, match[1])
+                actor = auth.actor_for(db, token)
+                booking = None
+                if actor and actor["role"] == "neighbor":
+                    booking = db.execute("SELECT status FROM bookings WHERE event_id=? AND neighbor_id=?",
+                                         (event["id"], actor["id"])).fetchone()
+                return {"event": events.result(event), "booking": booking["status"] if booking else None}
+            if path == "/api/me":
+                actor = auth.actor_for(db, token, "neighbor")
+                bookings = db.execute("""SELECT e.id,e.title,e.starts,e.status AS event_status,b.status,b.party
+                    FROM bookings b JOIN events e ON e.id=b.event_id
+                    WHERE b.neighbor_id=? AND b.status!='cancelled' ORDER BY e.starts DESC""", (actor["id"],))
+                reports = db.execute("""SELECT r.id,r.status,e.title FROM reports r JOIN events e ON e.id=r.event_id
+                    WHERE r.neighbor_id=? ORDER BY r.created DESC""", (actor["id"],))
+                return {"actor": auth.public_actor(actor), "bookings": [dict(r) for r in bookings],
+                        "reports": [dict(r) for r in reports], "notifications": notifications.preferences(db, actor)}
+            if path == "/api/coordinator":
+                actor = auth.actor_for(db, token, "coordinator")
+                return {"events": events.catalog(db, owner=actor["id"]), "profile": coordinator.profile(db, actor)}
+            if match := re.fullmatch(r"/api/coordinator/events/([0-9a-f]{32})/bookings", path):
+                actor = auth.actor_for(db, token, "coordinator")
+                events.require_owner(events.event_row(db, match[1]), actor)
+                rows = db.execute("""SELECT n.name,b.status,b.created,b.attended_at,b.party
+                    FROM bookings b JOIN neighbors n ON n.id=b.neighbor_id
+                    WHERE b.event_id=? AND b.status!='cancelled' ORDER BY b.queue_order""", (match[1],))
+                return {"bookings": [dict(r) for r in rows]}
+            if path == "/api/ceo/network":
+                auth.actor_for(db, token, "ceo")
+                ip, source = self.client_network()
+                return {"ip": ip, "source": source}
+            if path == "/api/ceo":
+                auth.actor_for(db, token, "ceo")
+                return management.dashboard(db, params.get("search", [""])[0][:100])
+        raise APIError(404, "Ruta no encontrada.")
+
+    def post(self, path, body, token):
+        if path == "/api/neighbors/register":
+            return auth.register_neighbor(body, self.client_ip(), token)
+        if path == "/api/neighbors/login":
+            return auth.login_neighbor(body, self.client_ip(), token)
+        if path == "/api/account/login":
+            return auth.login_account(body, self.client_ip(), token)
+        if path == "/api/account/recovery-code":
+            return auth.issue_recovery_code(body, token), None
+        if path == "/api/account/contact":
+            return auth.update_neighbor(body, token), None
+        if path == "/api/account/reset-password":
+            return auth.reset_password(body, self.client_ip()), None
+        if path == "/api/coordinator/request":
+            return auth.request_coordinator(body, self.client_ip()), None
+        if path == "/api/coordinator/profile":
+            return coordinator.change_profile(body, token), None
+        if path == "/api/coordinator/suggest":
+            with database() as db:
+                actor = auth.actor_for(db, token, "coordinator")
+            limit = 10 if ai.MODEL_URL and body.get("device") is not True else 60
+            rate_limit((f"ai:{actor['id']}", limit, 3600))
+            suggestion = ai.suggest(body)
+            with database(write=True) as db:
+                actor = auth.actor_for(db, token, "coordinator")
+                if "device_payload" in suggestion:
+                    action = "ficha_ia_dispositivo_solicitada"
+                else:
+                    action = "ficha_ia_generada" if suggestion["source"] == "local_model" else "ficha_plantilla_generada"
+                audit(db, actor, action)
+            return suggestion, None
+        if re.fullmatch(r"/api/coordinator/events/[0-9a-f]{32}/attendance", path):
+            with database() as db:
+                actor = auth.actor_for(db, token, "coordinator")
+            rate_limit((f"attendance:{actor['id']}", 30, 900))
+        if path == "/api/staff/login":
+            return auth.login_staff(body, self.client_ip(), token)
+        if path == "/api/staff/password":
+            return auth.change_password(body, token)
+        with database(write=True) as db:
+            if path == "/api/logout":
+                auth.revoke(db, token)
+                return {"ok": True}, ("", 0)
+            return self.mutate(db, path, body, token), None
+
+    def mutate(self, db, path, body, token):
+        if path == "/api/me/notifications":
+            return notifications.subscribe(db, auth.actor_for(db, token, "neighbor"), body)
+        if path == "/api/traffic":
+            return management.visit(db, auth.actor_for(db, token, "neighbor"), body)
+        if match := re.fullmatch(r"/api/events/([0-9a-f]{32})/(reserve|cancel|report)", path):
+            actor = auth.actor_for(db, token, "neighbor")
+            event = events.event_row(db, match[1])
+            if match[2] == "report":
+                return management.report(db, actor, event["id"], body)
+            return events.reserve(db, actor, event, match[2] == "cancel", body.get("party"))
+        if path == "/api/coordinator/events":
+            actor = auth.actor_for(db, token, "coordinator")
+            if not actor["phone"]:
+                raise APIError(400, "Pide al equipo que registre tu celular antes de publicar.")
+            return events.save(db, actor, body)
+        if path == "/api/coordinator/documents":
+            return coordinator.upload(db, auth.actor_for(db, token, "coordinator"), body)
+        if path == "/api/coordinator/documents/remove":
+            return coordinator.remove(db, auth.actor_for(db, token, "coordinator"), body)
+        if match := re.fullmatch(r"/api/coordinator/events/([0-9a-f]{32})/(edit|cancel|attendance)", path):
+            actor = auth.actor_for(db, token, "coordinator")
+            event = events.event_row(db, match[1])
+            events.require_owner(event, actor)
+            if match[2] == "edit":
+                return events.save(db, actor, body, event)
+            if match[2] == "cancel":
+                return events.cancel(db, actor, event)
+            return events.attendance(db, actor, event, body)
+        if path.startswith("/api/ceo/"):
+            actor = auth.actor_for(db, token, "ceo")
+            if path == "/api/ceo/neighbor-recovery":
+                return auth.issue_assisted_recovery(db, actor, body)
+            if path == "/api/ceo/history":
+                return management.history(db, actor, body.get("neighbor"))
+            return management.manage(db, actor, path, body)
+        raise APIError(404, "Ruta no encontrada.")
 
 
-# =============================================================================
-# INICIO DEL SERVIDOR
-# =============================================================================
-def run_server():
-    server_address = ("0.0.0.0", PORT)
-    httpd = HTTPServer(server_address, ChispaPlayHandler)
-    print("=" * 70)
-    print(f"[CHISPAPLAY] SERVIDOR BACKEND & BASE DE DATOS INICIADO")
-    print(f"[*] Servidor Web y API REST escuchando en: http://localhost:{PORT}")
-    print(f"[*] Base de Datos SQLite activa en: {DB_PATH}")
-    print(f"[*] Directorio de Fotos y Archivos: {UPLOADS_DIR}")
-    print(f"[*] Clave Maestra CEO: {CEO_MASTER_KEY}")
-    print("=" * 70)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\nServidor detenido por el usuario.")
-        httpd.server_close()
+class Server(ThreadingHTTPServer):
+    cleanup_after = 0
+
+    def service_actions(self):
+        if now() >= self.cleanup_after:
+            self.cleanup_after = now() + 3600
+            try:
+                prune()
+            except sqlite3.Error:
+                traceback.print_exc()
+
+
+def setup_ceo(args):
+    username = auth.username_for(args.username)
+    name = args.name.strip()
+    if not 2 <= len(name) <= 120:
+        raise APIError(400, "Revisa el nombre.")
+    phone = auth.phone_number(args.phone)
+    password = auth.validate_password(getpass.getpass("Contraseña CEO: "))
+    if password != getpass.getpass("Confirma contraseña: "):
+        raise APIError(400, "Las contraseñas no coinciden.")
+    encoded = auth.password_hash(password)
+    with database(write=True) as db:
+        existing = db.execute("SELECT * FROM staff WHERE username=?", (username,)).fetchone()
+        other_ceo = db.execute("SELECT 1 FROM staff WHERE role='ceo' AND active=1 AND username!=?", (username,)).fetchone()
+        if other_ceo:
+            raise APIError(409, "Ya existe una cuenta CEO activa.")
+        if existing:
+            if not args.reset or existing["role"] != "ceo":
+                raise APIError(409, "El usuario ya existe. Usa --reset solo para una cuenta CEO existente.")
+            db.execute("UPDATE staff SET password_hash=?,name=?,phone=?,active=1 WHERE id=?", (encoded, name, phone, existing["id"]))
+            db.execute("DELETE FROM sessions WHERE actor_id=?", (existing["id"],))
+            audit(db, existing, "credencial_ceo_restaurada")
+        else:
+            staff_id = auth.create_staff(db, username, name, encoded, "ceo")
+            db.execute("UPDATE staff SET phone=? WHERE id=?", (phone, staff_id))
+            audit(db, {"id": staff_id, "role": "ceo"}, "cuenta_ceo_creada")
+    print(f"Cuenta CEO habilitada: {username}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command")
+    ceo = commands.add_parser("ceo", help="Crear o restablecer una cuenta CEO desde el servidor")
+    ceo.add_argument("username")
+    ceo.add_argument("--name", required=True)
+    ceo.add_argument("--phone", required=True)
+    ceo.add_argument("--reset", action="store_true")
+    args = parser.parse_args()
+    init_db()
+    if args.command == "ceo":
+        try:
+            return setup_ceo(args)
+        except APIError as error:
+            parser.error(error.message)
+    with Server((HOST, PORT), Handler) as server:
+        print(f"ChispaPlay en {HOST}:{PORT}", flush=True)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+
 
 if __name__ == "__main__":
-    run_server()
+    main()

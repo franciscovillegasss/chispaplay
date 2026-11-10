@@ -12,3 +12,7 @@ chispaplay.db
 uploads/*
 !uploads/.gitkeep
 
+
+chispaplay.db-wal
+chispaplay.db-shm
+data/

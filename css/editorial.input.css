@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+[hidden] { display: none !important; }
+:focus-visible { outline: 3px solid #1766aa; outline-offset: 3px; }
+#app h1 { @apply text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight leading-tight mb-3; }
+#app h2 { @apply text-xl sm:text-2xl font-black uppercase tracking-tight mb-3; }
+#app h3 { @apply text-base font-black uppercase mb-2; }
+#app p { @apply mb-3; }
+.editorial-heading { @apply border-b-4 border-black pb-6 mb-8; }
+.eyebrow { @apply text-xs font-mono font-black uppercase tracking-wider text-[#E11D48]; }
+.lede, .muted { @apply text-sm text-neutral-600; }
+.panel { @apply bg-white border-2 border-black p-5 sm:p-7 shadow-[5px_5px_0px_0px_#111111] mb-7 min-w-0; }
+.narrow { @apply max-w-xl; }
+.auth-panel { @apply max-w-md mx-auto my-8 border-4 shadow-[8px_8px_0px_0px_#E11D48]; }
+.ticket-panel { @apply border-4 shadow-[8px_8px_0px_0px_#E11D48]; }
+.actions { @apply flex flex-wrap items-center gap-3 my-3; }
+#app button, .button, #safety button { @apply inline-flex items-center bg-black text-white border-2 border-black px-3.5 py-2 text-xs font-black uppercase tracking-wide hover:bg-[#E11D48] hover:border-[#E11D48] transition-colors cursor-pointer min-h-10; }
+#app button.secondary, .button.secondary, #safety button.secondary { @apply bg-white text-neutral-900 hover:bg-neutral-100 hover:border-black; }
+#app button[aria-pressed="true"] { @apply bg-black text-white; }
+#app button:disabled { @apply opacity-60 cursor-wait; }
+#app button#switch-auth { @apply mt-4; }
+#app form { @apply grid gap-3; }
+#app form button { @apply justify-self-start; }
+#app label { @apply grid gap-1 text-xs font-black uppercase tracking-wide; }
+#app input:not([type="checkbox"]), #app select, #app textarea { @apply w-full border-2 border-black bg-neutral-50 p-2.5 text-sm font-medium normal-case tracking-normal; }
+.fields, .filters, .facts { @apply grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-3; }
+.facts > div { @apply border-l-4 border-[#E11D48] pl-3; }
+.facts dt { @apply text-xs font-mono font-black uppercase; }
+.facts dd { @apply font-bold break-words; }
+.badge { @apply inline-block bg-[#E11D48] text-white px-2.5 py-0.5 text-xs font-mono font-black uppercase; }
+.notice { @apply sticky top-0 z-30 bg-emerald-50 text-emerald-900 border-2 border-black p-3 mx-auto max-w-7xl text-sm font-bold; }
+.notice.error { @apply bg-red-50 text-red-900; }
+.table { @apply overflow-x-auto; }
+.table table { @apply w-full text-left text-sm; }
+.table th { @apply bg-black text-white uppercase text-xs font-mono; }
+.table th, .table td { @apply p-2.5 border-b border-neutral-300 align-top; }
+.table td a, #app p a:not(.button) { @apply underline font-bold hover:text-[#E11D48]; }
+.code { @apply block text-2xl font-mono font-black my-3 break-words; }
+.event-cover { @apply w-full aspect-video object-cover border-2 border-black shadow-[5px_5px_0px_0px_#111111]; }
+.preline { @apply whitespace-pre-wrap break-words; }
+#app summary { @apply font-black uppercase text-sm cursor-pointer mb-2; }
+.staff-tabs { @apply flex overflow-x-auto gap-2 border-b-2 border-black mb-8 pb-1; }
+.staff-tabs button { @apply shrink-0; }
+#safety::backdrop { background-color: rgb(0 0 0 / 0.6); }
+
+.location-map { width: 100%; min-height: 300px; border: 2px solid #111111; }
+
+.whatsapp-flyer label { color: white; }
+.whatsapp-flyer select { color: #111; background: white; padding: .6rem; }
+.whatsapp-flyer form { display: grid; gap: .75rem; }
+.whatsapp-flyer form label { display: grid; gap: .5rem; }
+.whatsapp-flyer .check { display: flex; align-items: start; gap: .5rem; font-size: .8rem; }
+.whatsapp-flyer .button, .whatsapp-flyer button { background: #E11D48; color: white; border: 2px solid white; padding: .65rem 1rem; font-weight: 800; text-transform: uppercase; font-size: .8rem; }

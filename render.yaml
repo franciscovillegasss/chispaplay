@@ -2,12 +2,13 @@ services:
   - type: web
     name: chispaplay
     runtime: python
-    buildCommand: ""
-    startCommand: python server.py
+    branch: chispaplay-operativo
     plan: free
-    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: 'test -n "$CHISPA_DATABASE_URL" && CHISPA_PUBLIC_ORIGIN="$RENDER_EXTERNAL_URL" exec python server.py'
+    healthCheckPath: /api/health
     envVars:
-      - key: PORT
-        value: 10000
-      - key: CHISPA_CEO_KEY
-        value: CHISPA-CEO-2026
+      - key: HOST
+        value: 0.0.0.0
+      - key: CHISPA_DATABASE_URL
+        sync: false
