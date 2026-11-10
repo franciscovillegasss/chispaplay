@@ -316,7 +316,8 @@ function recoveryForm(role) {
   app.innerHTML = `<section class="panel narrow auth-panel"><h1>Recuperar contraseña</h1>
     <p>Usa el código que guardaste desde tu cuenta. Cada código funciona una sola vez.</p>
     <form id="reset-password">
-      <label>Usuario o celular <input name="account" autocomplete="username" required maxlength="64"></label>
+      <label>${staff ? 'Usuario o celular' : 'Nombre'} <input name="account" autocomplete="username" required maxlength="100"></label>
+      ${staff ? '' : '<label>Celular registrado (opcional) <input name="phone" type="tel" autocomplete="tel" maxlength="25"></label>'}
       <label>Código de recuperación <input name="code" required maxlength="50" autocomplete="off" spellcheck="false"></label>
       <label>Nueva contraseña <input name="new_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
       <label>Confirma la contraseña <input name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
@@ -326,9 +327,9 @@ function recoveryForm(role) {
     <button id="recovery-back" class="secondary" type="button">Volver al ingreso</button></section>`;
   const back = () => staff ? staffLogin(role) : neighborLogin(false);
   onClick('recovery-back', back);
-  onForm('reset-password', async ({ account, code, new_password, confirm_password }) => {
+  onForm('reset-password', async ({ account, phone, code, new_password, confirm_password }) => {
     if (new_password !== confirm_password) throw new Error('Las contraseñas no coinciden.');
-    await api('/api/account/reset-password', { account, code, new_password, role });
+    await api('/api/account/reset-password', { account, phone, code, new_password, role });
     back();
     notify('Contraseña actualizada. Inicia sesión y genera un nuevo código de recuperación.');
   });
@@ -363,14 +364,12 @@ const phonePrivacy = 'Tu celular se guarda en la base privada de ChispaPlay. No 
 function neighborLogin(register = true) {
   app.innerHTML = `<section class="panel narrow auth-panel"><p class="eyebrow">Credencial de barrio</p>
     <h1>Mi Pase Vecinal</h1><h2>${register ? 'Crea tu cuenta' : 'Entra a tu cuenta'}</h2>
-    <p>${register ? 'Crea tu Pase Vecinal con tu nombre y un nombre de usuario. Puedes agregar el celular ahora o más adelante.' : 'Ingresa con tu usuario o celular registrado.'}</p>
+    <p>${register ? 'Crea tu Pase Vecinal con tu nombre y contraseña. Puedes agregar el celular ahora o más adelante.' : 'Ingresa con el nombre y la contraseña que registraste.'}</p>
     <form id="neighbor-auth">
-      ${register ? `<label>Nombre <input name="name" autocomplete="name" required minlength="2" maxlength="100"></label>
-      <label>Nombre de usuario <input name="username" autocomplete="username" required minlength="3" maxlength="64" spellcheck="false"></label>
-      <label>Celular chileno (opcional) <input name="phone" type="tel" autocomplete="tel" maxlength="25"></label>
-      <p class="muted">${phonePrivacy}</p>` : `<label>Usuario o celular <input name="account" autocomplete="username" required maxlength="64"></label>
-      <details><summary>Ingresar también el nombre de la cuenta</summary><label>Nombre de la cuenta <input name="name" autocomplete="name" maxlength="100"></label></details>`}
+      <label>Nombre <input name="name" autocomplete="${register ? 'name' : 'username'}" required minlength="2" maxlength="100"></label>
       <label>Contraseña <input name="password" type="password" autocomplete="${register ? 'new-password' : 'current-password'}" required ${register ? 'minlength="8"' : ''} maxlength="128"></label>
+      <label>Celular chileno (opcional) <input name="phone" type="tel" autocomplete="tel" maxlength="25"></label>
+      ${register ? `<p class="muted">${phonePrivacy}</p>` : '<p class="muted">Si compartes nombre con otra cuenta, agrega tu celular registrado.</p>'}
       ${register ? '<div hidden aria-hidden="true"><label>Sitio web <input name="website" autocomplete="off" tabindex="-1"></label></div>' : ''}
       ${rememberDevice}
       <p class="muted">ChispaPlay registra únicamente tus interacciones dentro de esta página web para medir el uso de la cartelera. No registra tu navegación en otros sitios ni aplicaciones. El historial de esta web se conserva durante 90 días.</p>
@@ -383,7 +382,7 @@ function neighborLogin(register = true) {
   onClick('forgot-password', () => recoveryForm('neighbor'));
   onForm('neighbor-auth', async fields => {
     ({ actor } = await api(register ? '/api/neighbors/register' : '/api/account/login', fields));
-    if (actor.role === 'neighbor') offerBrowserSave(fields, fields.account || fields.username || fields.phone);
+    if (actor.role === 'neighbor') offerBrowserSave(fields, fields.name);
     renderNavigation(page, actor);
     if (actor.role === 'ceo') {
       location.assign('/perfil.html');
@@ -434,9 +433,8 @@ async function renderProfile() {
         escapeHtml(item.id), escapeHtml(item.title), status(item.status)
       ]), 'Todavía no has enviado reportes.')}
     </section>
-    <details class="panel narrow" id="account-contact" ${query.has('contacto') || !actor.phone ? 'open' : ''}><summary>Usuario y celular</summary>
+    <details class="panel narrow" id="account-contact" ${query.has('contacto') || !actor.phone ? 'open' : ''}><summary>Celular de contacto</summary>
       <p>${phonePrivacy}</p><form id="update-contact">
-        <label>Nombre de usuario <input name="username" autocomplete="username" maxlength="64" value="${escapeHtml(actor.username)}"></label>
         <label>Celular chileno (opcional) <input name="phone" type="tel" autocomplete="tel" maxlength="25" value="${escapeHtml(actor.phone)}"></label>
         <label>Contraseña actual <input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
         <button type="submit">Guardar datos de contacto</button></form></details>

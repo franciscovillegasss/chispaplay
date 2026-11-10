@@ -103,7 +103,7 @@ El flyer al final del ranking y de la cartelera permite suscribirse a avisos de 
 
 ## Ingreso unificado
 
-En Mi Pase, el vecino puede registrarse con nombre, usuario y contraseña. El celular es opcional. Se puede ingresar con el usuario o con el celular registrado. El acceso CEO sigue requiriendo el celular, el nombre de la cuenta y la contraseña. El usuario puede agregar o retirar su celular en Mi Pase tras confirmar su contraseña. Al cambiarlo, se desactivan las suscripciones de WhatsApp hasta que el usuario las active con el número nuevo.
+En Mi Pase, el vecino se registra e ingresa con nombre y contraseña. Puede ingresar su celular registrado para distinguir cuentas con el mismo nombre, o agregarlo y retirarlo desde su perfil tras confirmar la contraseña. Al cambiar el número, se desactivan las suscripciones de WhatsApp hasta que se activen de nuevo. Las cuentas existentes conservan su nombre, contraseña y reservas. El acceso CEO sigue requiriendo el celular, el nombre de la cuenta y la contraseña.
 
 Los coordinadores pueden ingresar con el nombre de usuario o con su celular registrado. El panel CEO permite asignar un celular a cuentas de coordinación antiguas. La opción «Mantener mi sesión en este dispositivo» amplía la sesión vecinal a 90 días y la de coordinación a 7 días. Los formularios permiten el autocompletado del navegador y pueden ofrecer guardar las credenciales en el gestor del dispositivo.
 

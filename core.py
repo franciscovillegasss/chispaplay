@@ -5,6 +5,7 @@ import re
 import secrets
 import sqlite3
 import time
+import unicodedata
 
 import cloud_database
 from contextlib import contextmanager
@@ -24,6 +25,10 @@ class APIError(Exception):
 
 def now():
     return int(time.time())
+
+
+def name_key(value):
+    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
 
 
 @contextmanager
@@ -61,13 +66,15 @@ def init_db():
             db.execute("ALTER TABLE neighbors ADD COLUMN password_hash TEXT")
         if columns["phone"]["notnull"]:
             db.execute("""CREATE TABLE neighbors_optional (
-                id TEXT PRIMARY KEY, phone TEXT UNIQUE, name TEXT NOT NULL, username TEXT UNIQUE,
+                id TEXT PRIMARY KEY, phone TEXT UNIQUE, name TEXT NOT NULL,
                 personal_code TEXT NOT NULL UNIQUE, tracking INTEGER NOT NULL DEFAULT 1,
                 created INTEGER NOT NULL, password_hash TEXT)""")
             db.execute("""INSERT INTO neighbors_optional(id,phone,name,personal_code,tracking,created,password_hash)
                 SELECT id,phone,name,personal_code,tracking,created,password_hash FROM neighbors""")
             db.execute("DROP TABLE neighbors")
             db.execute("ALTER TABLE neighbors_optional RENAME TO neighbors")
+        if "name_key" not in columns:
+            db.execute("ALTER TABLE neighbors ADD COLUMN name_key TEXT")
         event_columns = {column["name"] for column in db.execute("PRAGMA table_info(events)")}
         for name, definition in (("wheelchair", "INTEGER NOT NULL DEFAULT 0"), ("sensory", "INTEGER NOT NULL DEFAULT 0"),
                                  ("latitude", "REAL"), ("longitude", "REAL"), ("why_go", "TEXT NOT NULL DEFAULT ''"),
@@ -95,6 +102,9 @@ def init_db():
 
 
 def normalize_records(db):
+    for neighbor in db.execute("SELECT id,name FROM neighbors WHERE name_key IS NULL").fetchall():
+        db.execute("UPDATE neighbors SET name_key=? WHERE id=?", (name_key(neighbor["name"]), neighbor["id"]))
+    db.execute("CREATE INDEX IF NOT EXISTS neighbor_name_key ON neighbors(name_key)")
     db.execute("UPDATE neighbors SET tracking=1 WHERE tracking!=1")
     for neighbor in db.execute("SELECT id,personal_code FROM neighbors").fetchall():
         if not re.fullmatch(r"[0-9]{5}", neighbor["personal_code"]):

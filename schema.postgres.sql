@@ -1,10 +1,9 @@
 CREATE TABLE IF NOT EXISTS neighbors (
- id TEXT PRIMARY KEY, phone TEXT UNIQUE, name TEXT NOT NULL, username TEXT,
+ id TEXT PRIMARY KEY, phone TEXT UNIQUE, name TEXT NOT NULL,
  personal_code TEXT NOT NULL UNIQUE, tracking BIGINT NOT NULL DEFAULT 1, created BIGINT NOT NULL, password_hash TEXT
 );
 ALTER TABLE neighbors ALTER COLUMN phone DROP NOT NULL;
-ALTER TABLE neighbors ADD COLUMN IF NOT EXISTS username TEXT;
-CREATE UNIQUE INDEX IF NOT EXISTS neighbor_username ON neighbors(username);
+ALTER TABLE neighbors ADD COLUMN IF NOT EXISTS name_key TEXT;
 CREATE TABLE IF NOT EXISTS staff (
  id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, name TEXT NOT NULL,
  role TEXT NOT NULL CHECK(role IN ('ceo','coordinator')), active BIGINT NOT NULL DEFAULT 1,

@@ -6,7 +6,7 @@ import re
 import secrets
 import sqlite3
 
-from core import APIError, audit, database, field, identifier, now, rate_limit, personal_code
+from core import APIError, audit, database, field, identifier, name_key, now, rate_limit, personal_code
 
 PASSWORD_ITERATIONS = 600_000
 
@@ -26,15 +26,6 @@ def username_for(value):
     if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9_.-]{3,64}", value.strip()):
         raise APIError(400, "Usa entre 3 y 64 letras, números, puntos, guiones o guiones bajos para el usuario.")
     return value.strip().lower()
-
-
-def neighbor_username(value):
-    name = username_for(value)
-    try:
-        phone_number(name)
-    except APIError:
-        return name
-    raise APIError(400, "El nombre de usuario no puede ser un número de celular.")
 
 
 def validate_password(value):
@@ -106,7 +97,7 @@ def actor_for(db, token, *roles, temporary=False):
 def public_actor(actor):
     if actor is None:
         return None
-    fields = ("id", "role", "name", "phone", "username", "personal_code", "tracking") if actor["role"] == "neighbor" else (
+    fields = ("id", "role", "name", "phone", "personal_code", "tracking") if actor["role"] == "neighbor" else (
         "id", "role", "name", "username", "must_change"
     )
     return {key: actor[key] for key in fields}
@@ -114,10 +105,8 @@ def public_actor(actor):
 
 def register_neighbor(body, ip, previous):
     phone = phone_number(body["phone"]) if body.get("phone") else None
-    username = neighbor_username(body["username"]) if body.get("username") else None
-    if not phone and not username:
-        raise APIError(400, "Elige un nombre de usuario para entrar sin celular.")
     name = field(body, "name", "el nombre", 100, 2)
+    normalized = name_key(name)
     password = validate_password(body.get("password"))
     if body.get("website"):
         raise APIError(400, "No se pudo registrar la cuenta.")
@@ -128,47 +117,52 @@ def register_neighbor(body, ip, previous):
             raise APIError(409, "Este celular está reservado para una cuenta de administración.")
         if db.execute("SELECT 1 FROM neighbors WHERE phone=?", (phone,)).fetchone():
             raise APIError(409, "Ya existe una cuenta para este número. Inicia sesión.")
-        if db.execute("SELECT 1 FROM neighbors WHERE username=?", (username,)).fetchone():
-            raise APIError(409, "Ese nombre de usuario ya está ocupado.")
+        if not phone and db.execute("SELECT 1 FROM neighbors WHERE name_key=? AND phone IS NULL", (normalized,)).fetchone():
+            raise APIError(409, "Ya existe una cuenta con ese nombre. Si es otra persona, agrega tu celular para distinguirla.")
         actor_id = secrets.token_hex(16)
         code = personal_code(db)
-        db.execute("""INSERT INTO neighbors(id,phone,username,name,personal_code,created,password_hash,tracking)
-            VALUES (?,?,?,?,?,?,?,1)""", (actor_id, phone, username, name, code, now(), encoded))
+        db.execute("""INSERT INTO neighbors(id,phone,name_key,name,personal_code,created,password_hash,tracking)
+            VALUES (?,?,?,?,?,?,?,1)""", (actor_id, phone, normalized, name, code, now(), encoded))
         actor = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE id=?", (actor_id,)).fetchone()
         audit(db, actor, "vecino_registrado")
         cookie = session(db, actor, previous, body.get("remember") == "on")
     return {"actor": public_actor(actor)}, cookie
 
 
-def find_neighbor(db, account, by_phone=False):
-    if not by_phone:
-        actor = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE username=?", (account.lower(),)).fetchone()
-        if actor:
-            return actor
-    try:
-        phone = phone_number(account)
-    except APIError:
-        return None
-    return db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE phone=?", (phone,)).fetchone()
+def neighbor_candidates(db, name, phone):
+    if phone:
+        return db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE name_key=? AND phone=?",
+                          (name_key(name), phone)).fetchall()
+    rows = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE name_key=? LIMIT 5",
+                      (name_key(name),)).fetchall()
+    if len(rows) <= 4:
+        return rows
+    rows = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE name_key=? AND phone IS NULL LIMIT 5",
+                      (name_key(name),)).fetchall()
+    return rows if len(rows) <= 4 else []
 
 
 def login_neighbor(body, ip, previous):
-    by_phone = "account" not in body
-    account = field(body, "phone" if by_phone else "account", "el usuario o celular", 64)
+    name = field(body, "name", "el nombre", 100, 2)
+    phone = phone_number(body["phone"]) if body.get("phone") else None
     password = body.get("password")
     if not isinstance(password, str) or not 1 <= len(password) <= 128:
-        raise APIError(400, "Ingresa usuario o celular y contraseña.")
-    rate_limit((f"neighbor-login-ip:{ip}", 30, 900))
+        raise APIError(400, "Ingresa nombre y contraseña.")
+    identity = digest(name_key(name))
+    rate_limit((f"neighbor-login-ip:{ip}", 30, 900), (f"neighbor-login-name:{identity}", 10, 900))
     with database() as db:
-        actor = find_neighbor(db, account, by_phone)
-    identity = actor["id"] if actor else digest(account.lower())
-    rate_limit((f"neighbor-login-account:{identity}", 10, 900))
-    encoded = actor["password_hash"] if actor else None
-    if not verify_password(password, encoded or DUMMY_HASH) or not encoded:
-        raise APIError(401, "Celular o contraseña incorrectos.")
+        candidates = neighbor_candidates(db, name, phone)
+    matches = []
+    for candidate in candidates or [None]:
+        encoded = candidate["password_hash"] if candidate else None
+        if verify_password(password, encoded or DUMMY_HASH) and encoded:
+            matches.append(candidate)
+    if len(matches) != 1:
+        raise APIError(401, "Revisa el nombre y la contraseña. Si registraste un celular, puedes ingresarlo para distinguir tu cuenta.")
+    actor = matches[0]
     with database(write=True) as db:
         current = db.execute("SELECT *, 'neighbor' AS role FROM neighbors WHERE id=?", (actor["id"],)).fetchone()
-        if not current or current["password_hash"] != encoded or current["phone"] != actor["phone"] or current["username"] != actor["username"]:
+        if not current or current["password_hash"] != actor["password_hash"] or current["phone"] != actor["phone"]:
             raise APIError(401, "Vuelve a iniciar sesión.")
         audit(db, current, "sesion_vecinal_iniciada")
         cookie = session(db, current, previous, body.get("remember") == "on")
@@ -180,9 +174,6 @@ def update_neighbor(body, token):
     if not isinstance(password, str) or not 1 <= len(password) <= 128:
         raise APIError(400, "Ingresa tu contraseña actual.")
     phone = phone_number(body["phone"]) if body.get("phone") else None
-    username = neighbor_username(body["username"]) if body.get("username") else None
-    if not phone and not username:
-        raise APIError(400, "Conserva al menos un nombre de usuario o un celular para entrar.")
     with database() as db:
         actor = actor_for(db, token, "neighbor")
     rate_limit((f"neighbor-contact:{actor['id']}", 8, 3600))
@@ -192,14 +183,16 @@ def update_neighbor(body, token):
         current = actor_for(db, token, "neighbor")
         if current["password_hash"] != actor["password_hash"]:
             raise APIError(409, "Vuelve a iniciar sesión.")
-        if db.execute("SELECT 1 FROM neighbors WHERE id<>? AND (phone=? OR username=?)", (actor["id"], phone, username)).fetchone() or db.execute(
+        if db.execute("SELECT 1 FROM neighbors WHERE id<>? AND phone=?", (actor["id"], phone)).fetchone() or db.execute(
             "SELECT 1 FROM staff WHERE role='ceo' AND phone=?", (phone,)
         ).fetchone():
-            raise APIError(409, "Ese usuario o celular ya está reservado.")
+            raise APIError(409, "Ese celular ya está reservado.")
         if current["phone"] != phone:
+            if not phone and db.execute("SELECT COUNT(*) FROM neighbors WHERE name_key=? AND phone IS NULL", (current["name_key"],)).fetchone()[0] >= 4:
+                raise APIError(409, "Hay varias cuentas sin celular con tu mismo nombre. Contacta al equipo para distinguir tu cuenta.")
             db.execute("UPDATE whatsapp_subscriptions SET active=0 WHERE neighbor_id=?", (actor["id"],))
             db.execute("DELETE FROM recovery_codes WHERE actor_id=? AND expires>0", (actor["id"],))
-        db.execute("UPDATE neighbors SET phone=?,username=? WHERE id=?", (phone, username, actor["id"]))
+        db.execute("UPDATE neighbors SET phone=? WHERE id=?", (phone, actor["id"]))
         audit(db, actor, "contacto_vecinal_actualizado")
     return {"ok": True}
 
@@ -306,21 +299,31 @@ def reset_password(body, ip):
     role = body.get("role")
     if role not in ("neighbor", "coordinator"):
         raise APIError(400, "Selecciona el tipo de cuenta.")
-    account = field(body, "account", "el usuario o celular", 64)
+    account = field(body, "account", "el nombre o usuario", 100)
+    phone = phone_number(body["phone"]) if role == "neighbor" and body.get("phone") else None
     code = re.sub(r"[\s-]", "", field(body, "code", "el código de recuperación", 50)).upper()
     if not re.fullmatch(r"[A-F0-9]{12}(?:[A-F0-9]{12})?", code):
         raise APIError(400, "Revisa el formato del código de recuperación.")
     password = validate_password(body.get("new_password"))
     rate_limit((f"recovery-reset:{ip}", 15, 900))
     with database() as db:
-        actor = find_coordinator(db, account) if role == "coordinator" else find_neighbor(db, account)
-        stored = db.execute("SELECT digest FROM recovery_codes WHERE actor_id=? AND (expires=0 OR expires>?)",
-                            (actor["id"], now())).fetchone() if actor else None
-    rate_limit((f"recovery-account:{actor['id'] if actor else digest(account.lower())}", 8, 900))
-    code_digest = digest(code)
+        if role == "coordinator":
+            staff = find_coordinator(db, account)
+            candidates = [staff] if staff else []
+        else:
+            candidates = neighbor_candidates(db, account, phone)
+        code_digest = digest(code)
+        matches = []
+        for candidate in candidates:
+            stored = db.execute("SELECT digest FROM recovery_codes WHERE actor_id=? AND (expires=0 OR expires>?)",
+                                (candidate["id"], now())).fetchone()
+            if stored and hmac.compare_digest(stored["digest"], code_digest):
+                matches.append(candidate)
+    rate_limit((f"recovery-account:{role}:{digest(name_key(account))}", 8, 900))
     invalid = APIError(401, "La cuenta o el código de recuperación no son válidos.")
-    if not stored or not hmac.compare_digest(stored["digest"], code_digest):
+    if len(matches) != 1:
         raise invalid
+    actor = matches[0]
     encoded = password_hash(password)
     with database(write=True) as db:
         if role == "coordinator" and not db.execute(
@@ -388,21 +391,11 @@ def request_coordinator(body, ip):
 
 
 def login_account(body, ip, previous):
-    value = field(body, "account" if "account" in body else "phone", "el usuario o celular", 64)
-    try:
-        phone = phone_number(value)
-    except APIError:
-        phone = None
-    with database() as db:
-        ceo = db.execute("SELECT 1 FROM staff WHERE role='ceo' AND active=1 AND phone=?", (phone,)).fetchone()
-    try:
+    phone = phone_number(body["phone"]) if body.get("phone") else None
+    if phone:
+        with database() as db:
+            ceo = db.execute("SELECT 1 FROM staff WHERE role='ceo' AND active=1 AND phone=?", (phone,)).fetchone()
         if ceo:
-            name = body.get("name")
-            if not isinstance(name, str) or not 2 <= len(name.strip()) <= 64:
-                name = "_"
+            name = field(body, "name", "el nombre", 100, 2)
             return login_ceo({"username": name, "phone": phone, "password": body.get("password")}, ip, previous)
-        return login_neighbor(body, ip, previous)
-    except APIError as error:
-        if error.status == 401:
-            raise APIError(401, "Los datos de acceso son incorrectos.") from None
-        raise
+    return login_neighbor(body, ip, previous)
